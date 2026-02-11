@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+  <h3 class="mb-3">Moulded Boxing QC — Session #{{ session.id }}</h3>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <div class="small text-muted">Drying Time</div>
+        <div class="fs-4 fw-bold">{{ session.drying_minutes }} min</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <div class="small text-muted">Actual Boxing Time</div>
+        <div class="fs-4 fw-bold">{{ session.actual_boxing_minutes() }} min</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <div class="small text-muted">Status</div>
+        <div class="fs-4 fw-bold">
+          {{ 'Stock Ready' if read_only else 'Pending QC' }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 shadow-sm mb-3">
+    <div class="d-flex align-items-center justify-content-between">
+      <h6 class="mb-0">
+        Count boxes per profile
+        {% if read_only %}
+          <span class="badge bg-secondary ms-2">Read-only</span>
+        {% endif %}
+      </h6>
+      <div class="small text-muted">
+        <span class="badge bg-success">✓</span> match
+        <span class="ms-2 badge bg-danger">✗</span> mismatch
+      </div>
+    </div>
+
+    <div class="table-responsive mt-2">
+      <table class="table table-bordered align-middle m-0">
+        <thead class="table-light">
+          <tr>
+            <th>Profile</th>
+            <th style="width:320px">Counted Boxes (QC)</th>
+            <th style="width:120px" class="text-center">Result</th>
+            <th style="width:140px" class="text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in form.rows %}
+          <tr>
+            <td><span class="badge bg-primary">{{ row.profile_code.data }}</span></td>
+            <td>
+              <form method="post"
+                    action="{{ url_for('moulded_boxing.qc_save_row', boxing_session_id=session.id) }}"
+                    class="d-flex gap-2">
+                {% if not read_only %}
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <input type="hidden" name="profile_code" value="{{ row.profile_code.data }}">
+                <input type="number"
+                       name="counted_boxes"
+                       class="form-control"
+                       min="0" step="1"
+                       value="{{ row.counted_boxes.data or 0 }}"
+                       {% if read_only %}disabled{% endif %}
+                       required>
+                {% if not read_only %}
+                  <button type="submit" class="btn btn-outline-primary">Save</button>
+                {% endif %}
+              </form>
+            </td>
+            <td class="text-center">
+              {% set m = matches.get(row.profile_code.data) %}
+              {% if m is not none %}
+                {% if m %}<span class="badge bg-success">✓</span>
+                {% else %}<span class="badge bg-danger">✗</span>{% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-center text-muted">
+              {% if matches.get(row.profile_code.data) is not none %}
+                Saved
+              {% else %}Not saved{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if form.rows|length == 0 %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">No profiles need QC for this session.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if not read_only %}
+    <form method="post" class="card p-3 shadow-sm">
+      {{ form.hidden_tag() }}
+
+      <div class="mb-3 form-check">
+        {{ form.confirm_all_boxes_complete(class="form-check-input", id="confirmAll") }}
+        <label for="confirmAll" class="form-check-label fw-semibold">
+          {{ form.confirm_all_boxes_complete.label.text }}
+        </label>
+        {% for err in form.confirm_all_boxes_complete.errors %}
+          <div class="text-danger small">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="mb-3">
+        {{ form.discrepancy_reason.label(class="form-label") }}
+        {{ form.discrepancy_reason(
+            class="form-control",
+            rows="2",
+            placeholder="Explain any discrepancy...",
+            disabled=(not needs_reason)
+        ) }}
+        <div class="form-text">
+          Only required if any row shows a red ✗. This field is disabled when all counts match.
+        </div>
+      </div>
+
+      <div class="d-grid">
+        {{ form.submit(class="btn btn-success btn-lg") }}
+      </div>
+    </form>
+  {% else %}
+    <div class="alert alert-success">This session is <b>Stock Ready</b>. Counts are read-only.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-md-8">
+    <h2>Active Pre-Expansion Session</h2>
+    <div class="card p-3 mb-4">
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><b>Batch Number:</b> {{ pre_exp.batch_no }}</li>
+        <li class="list-group-item"><b>Density:</b> {{ pre_exp.density }} g/l</li>
+        <li class="list-group-item"><b>Raw Material Before (Kg):</b> {{ pre_exp.planned_kg }}</li>
+        <li class="list-group-item"><b>Purpose:</b> {{ pre_exp.purpose }}</li>
+        <li class="list-group-item"><b>Operator:</b>
+          {% if pre_exp.operator %}
+            {{ pre_exp.operator.full_name or pre_exp.operator.username }}
+          {% else %}
+            <span class="text-muted">Unknown</span>
+          {% endif %}
+        </li>
+        <li class="list-group-item"><b>Started at:</b> {{ pre_exp.start_time.strftime("%Y-%m-%d %H:%M") }}</li>
+        <li class="list-group-item"><b>Status:</b> {{ pre_exp.status|capitalize }}</li>
+      </ul>
+    </div>
+    <h4>Density Checks</h4>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Density (g/l)</th>
+          <th>Weight (Kg)</th>
+          <th>Operator</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in pre_exp.density_checks %}
+        <tr>
+          <td>{{ check.check_time.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ check.measured_density }}</td>
+          <td>{{ check.measured_weight }}</td>
+          <td>
+            {% if check.operator %}
+              {{ check.operator.full_name or check.operator.username }}
+            {% else %}
+              <span class="text-muted">Unknown</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center">No checks yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="{{ url_for('pre_expansion.finish_session', session_id=pre_exp.id) }}" class="btn btn-danger mt-3">Finish Pre-Expansion Session</a>
+  </div>
+  <div class="col-md-4">
+    <h4>Add Density Check</h4>
+    <form method="post" id="densityCheckForm">
+      {{ form.hidden_tag() }}
+      <div class="mb-2">{{ form.measured_density.label }} {{ form.measured_density(class="form-control form-control-lg") }}</div>
+      <div class="mb-2">{{ form.measured_weight.label }} {{ form.measured_weight(class="form-control form-control-lg") }}</div>
+      <div class="mb-3">
+        <label class="form-label"><b>Operator:</b> {{ current_user.full_name or current_user.username }}</label>
+      </div>
+      <button type="submit" class="btn btn-success btn-lg w-100">{{ form.submit.label }}</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Reminder -->
+<div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title" id="reminderModalLabel">Density Check Reminder</h5>
+      </div>
+      <div class="modal-body">
+        <p>Please perform a density check and record your measurement!</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="focusForm()">Add Density Check</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let reminderTimeout = null;
+
+  function showReminder() {
+    let modal = new bootstrap.Modal(document.getElementById('reminderModal'));
+    modal.show();
+    // After dismissing, restart timer
+    startReminderTimer();
+  }
+
+  function startReminderTimer() {
+    // Clear any existing timer
+    if (reminderTimeout) {
+      clearTimeout(reminderTimeout);
+    }
+    // 10 minutes = 600000 ms
+    reminderTimeout = setTimeout(showReminder, 600000);
+    // For testing: setTimeout(showReminder, 10000); // 10 sec
+  }
+
+  function focusForm() {
+    document.getElementById('densityCheckForm').scrollIntoView({behavior: "smooth"});
+    document.getElementById('densityCheckForm').elements[0].focus();
+    // Restart timer every time user dismisses modal (extra safety)
+    startReminderTimer();
+  }
+
+  // Start timer on page load and restart after every check
+  window.onload = function() {
+    startReminderTimer();
+  }
+</script>
+{% endblock %}

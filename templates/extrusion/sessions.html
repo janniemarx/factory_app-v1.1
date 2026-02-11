@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-xl-10 col-lg-11">
+    <div class="card shadow p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Extrusion Sessions</h2>
+        <a href="{{ url_for('extrusion.start_session') }}" class="btn btn-success btn-lg">
+          <i class="bi bi-plus-circle"></i> New Session
+        </a>
+      </div>
+
+      <!-- Filters (lightweight) -->
+      <form class="row g-2 mb-3" method="get">
+        <div class="col-6 col-md-3">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option value="">All</option>
+            <option value="running" {{ 'selected' if (filters.status or '')=='running' else '' }}>Running</option>
+            <option value="completed" {{ 'selected' if (filters.status or '')=='completed' else '' }}>Completed</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Extruder ID</label>
+          <input type="number" name="extruder_id" class="form-control" value="{{ filters.extruder_id or '' }}">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Profile ID</label>
+          <input type="number" name="profile_id" class="form-control" value="{{ filters.profile_id or '' }}">
+        </div>
+        <div class="col-6 col-md-3 d-grid align-items-end">
+          <button class="btn btn-outline-primary mt-4">Apply</button>
+        </div>
+      </form>
+
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:70px;">ID</th>
+              <th>Extruder</th>
+              <th>Profile</th>
+              <th class="d-none d-md-table-cell">Operator</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th class="d-none d-md-table-cell">Ended</th>
+              <th style="width:140px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td class="fw-bold">#{{ s.id }}</td>
+              <td>{{ s.extruder.code if s.extruder and s.extruder.code else ('Extruder ' ~ s.extruder_id) }}</td>
+              <td>{{ s.profile.code if s.profile else s.profile_id }}</td>
+              <td class="d-none d-md-table-cell">
+                {{ s.operator.full_name or s.operator.username if s.operator else '-' }}
+              </td>
+              <td>
+                <span class="badge
+                  {% if s.status=='completed' %}bg-success
+                  {% elif s.is_paused %}bg-warning text-dark
+                  {% else %}bg-info text-dark{% endif %}">
+                  {{ s.status|title }}{% if s.is_paused %} (Paused){% endif %}
+                </span>
+              </td>
+              <td>{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at else '-' }}</td>
+              <td class="d-none d-md-table-cell">{{ s.ended_at.strftime('%Y-%m-%d %H:%M') if s.ended_at else '-' }}</td>
+              <td>
+                <a href="{{ url_for('extrusion.session_detail', session_id=s.id) }}" class="btn btn-outline-primary btn-sm">
+                  <i class="bi bi-eye"></i> View
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">
+                <i class="bi bi-inboxes" style="font-size:2rem;"></i>
+                <div class="mt-2">No extrusion sessions yet.</div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

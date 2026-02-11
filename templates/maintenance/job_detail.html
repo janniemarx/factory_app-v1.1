@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block content %}
+{% macro badge_status(s) -%}
+  {%- set m = {
+    'open':'secondary','assigned':'info','in_progress':'primary',
+    'in_review':'warning','rework_requested':'danger','closed':'success'
+  } -%}
+  <span class="badge bg-{{ m.get((s or 'open').lower(), 'secondary') }}">{{ (s or 'open').replace('_',' ')|capitalize }}</span>
+{%- endmacro %}
+{% macro badge_priority(p) -%}
+  {%- set m = {'low':'secondary','normal':'secondary','high':'warning','urgent':'danger'} -%}
+  <span class="badge bg-{{ m.get((p or 'normal').lower(),'secondary') }}">{{ (p or 'normal')|capitalize }}</span>
+{%- endmacro %}
+{% macro dhms(seconds) -%}
+  {%- set s = (seconds or 0)|int -%}
+  {%- set h = (s // 3600) -%}
+  {%- set m = ((s % 3600) // 60) -%}
+  {%- set ss = (s % 60) -%}
+  {{ "%02d:%02d:%02d"|format(h, m, ss) }}
+{%- endmacro %}
+
+{# Build a back URL that preserves filters from the list #}
+{% set back_url = url_for('maintenance.jobs_list',
+                          status=request.args.get('status') or None,
+                          mine=('1' if request.args.get('mine') in ['1','true','True','on'] else None)) %}
+
+{# Find an in-progress session (if any) #}
+{% set active_sessions = job.sessions | selectattr('status','equalto','in_progress') | list %}
+{% set active = active_sessions[0] if active_sessions else None %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-0">Job #{{ job.id }} · {{ job.title }}</h2>
+            <div class="text-muted small">
+              {{ badge_status(job.status) }} · {{ badge_priority(job.priority) }}
+              {% if job.location %} · Location: <span class="text-body">{{ job.location }}</span>{% endif %}
+              {% if job.asset_code %} · Asset: <span class="text-body">{{ job.asset_code }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url }}"><i class="bi bi-arrow-left"></i> Back to Jobs</a>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <!-- Left: details & sessions -->
+          <div class="col-lg-8">
+            <div class="border rounded p-3 mb-3">
+              <div class="fw-semibold mb-1">Description</div>
+              <div>{{ job.description or '—' }}</div>
+              <div class="small text-muted mt-2">
+                Reported by: <span class="text-body">{{ job.reported_by.full_name if job.reported_by else '—' }}</span>
+                · Created: <span class="text-body">{{ job.created_at.strftime('%Y-%m-%d %H:%M') if job.created_at else '—' }}</span>
+                · Updated: <span class="text-body">{{ job.updated_at.strftime('%Y-%m-%d %H:%M') if job.updated_at else '—' }}</span>
+              </div>
+            </div>
+
+            <div class="border rounded p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Sessions</h5>
+                <div class="small text-muted">Total time: <span class="text-body">{{ dhms(job.total_work_seconds) }}</span></div>
+              </div>
+
+              {% if job.sessions %}
+                <div class="accordion" id="sessAcc">
+                  {% for s in job.sessions %}
+                  <div class="accordion-item">
+                    <h2 class="accordion-header" id="h{{ s.id }}">
+                      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c{{ s.id }}">
+                        Session #{{ s.id }} · {{ s.technician.full_name if s.technician else '—' }}
+                        <span class="ms-2 text-muted small">({{ dhms(s.total_work_seconds) }})</span>
+                        {% if s.status == 'in_progress' %}<span class="badge bg-primary ms-2">In progress</span>{% endif %}
+                      </button>
+                    </h2>
+                    <div id="c{{ s.id }}" class="accordion-collapse collapse" data-bs-parent="#sessAcc">
+                      <div class="accordion-body">
+                        <div class="small text-muted mb-2">
+                          Started: <span class="text-body">{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at else '—' }}</span>
+                          · Ended: <span class="text-body">{{ s.ended_at.strftime('%Y-%m-%d %H:%M') if s.ended_at else '—' }}</span>
+                          · Status: <span class="text-body">{{ s.status.replace('_',' ')|capitalize }}</span>
+                        </div>
+
+                        {% if s.steps %}
+                          <div class="fw-semibold">Steps</div>
+                          <ol class="mb-0">
+                            {% for st in s.steps|sort(attribute='timestamp') %}
+                              <li class="mb-1">
+                                <span class="text-muted small">{{ st.timestamp.strftime('%Y-%m-%d %H:%M') }} — </span>{{ st.description }}
+                              </li>
+                            {% endfor %}
+                          </ol>
+                        {% else %}
+                          <div class="text-muted">No steps recorded.</div>
+                        {% endif %}
+
+                        <div class="mt-2">
+                          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('maintenance.session_detail', session_id=s.id) }}">
+                            Open Session
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="text-muted">No sessions yet.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Right: actions -->
+          <div class="col-lg-4">
+            <div class="border rounded p-3">
+              <h5 class="mb-3">Actions</h5>
+
+              {# Accept & start session (technician) #}
+              {% set can_accept = job.status in ['open','rework_requested'] %}
+              {% set taken_by_other = job.assigned_to and (current_user and job.assigned_to.id != current_user.id) %}
+
+              {% if can_accept and not taken_by_other %}
+                <form method="post" action="{{ url_for('maintenance.job_accept', job_id=job.id) }}" class="mb-3">
+                  {{ accept_form.hidden_tag() }}
+                  <div class="form-check mb-2">
+                    {{ accept_form.confirm(class="form-check-input", id="confirmAccept") }}
+                    <label for="confirmAccept" class="form-check-label">I will take this job</label>
+                  </div>
+                  {{ accept_form.submit(class="btn btn-primary w-100") }}
+                </form>
+              {% elif taken_by_other %}
+                <div class="alert alert-warning">
+                  Assigned to: <strong>{{ job.assigned_to.full_name }}</strong>. You cannot accept it.
+                </div>
+              {% endif %}
+
+              {# If you already have an in-progress session, jump to it #}
+              {% if active %}
+                <a class="btn btn-outline-primary w-100 mb-3" href="{{ url_for('maintenance.session_detail', session_id=active.id) }}">
+                  Go to Active Session
+                </a>
+              {% endif %}
+
+              <hr>
+
+              {# Manager push to review (optional) #}
+              {% if job.status in ['assigned','in_progress','rework_requested'] %}
+                <form method="post" action="{{ url_for('maintenance.job_submit_for_review', job_id=job.id) }}" class="mt-2">
+                  {{ submit_for_review_form.hidden_tag() }}
+                  {{ submit_for_review_form.submit(class="btn btn-outline-secondary w-100") }}
+                </form>
+                <div class="small text-muted mt-2">
+                  Use this if the work is finished and should be reviewed.
+                </div>
+              {% elif job.status == 'in_review' %}
+                <div class="alert alert-info mb-0">Awaiting manager review.</div>
+              {% elif job.status == 'closed' %}
+                <div class="alert alert-success mb-0">Job closed.</div>
+              {% endif %}
+
+            </div>
+
+            <div class="border rounded p-3 mt-3 small">
+              <div class="mb-1"><span class="text-muted">Assigned to:</span>
+                <span class="text-body">{{ job.assigned_to.full_name if job.assigned_to else '—' }}</span>
+              </div>
+              <div class="mb-1"><span class="text-muted">Assigned at:</span>
+                <span class="text-body">{{ job.assigned_at.strftime('%Y-%m-%d %H:%M') if job.assigned_at else '—' }}</span>
+              </div>
+              <div class="mb-1"><span class="text-muted">Total time:</span>
+                <span class="text-body">{{ dhms(job.total_work_seconds) }}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

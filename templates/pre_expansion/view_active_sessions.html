@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Active Pre-Expansion Sessions</h2>
+  {% if sessions %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Batch No</th>
+          <th>Operator</th>
+          <th>Started</th>
+          <th>Purpose</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td>{{ s.id }}</td>
+          <td>{{ s.batch_no }}</td>
+          <td>{{ s.operator }}</td>
+          <td>{{ s.start_time.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ s.purpose }}</td>
+          <td>
+            <a href="{{ url_for('pre_expansion.active_session', session_id=s.id) }}" class="btn btn-success btn-sm">Resume Session</a>
+            <a href="{{ url_for('pre_expansion.finish_session', session_id=s.id) }}" class="btn btn-danger btn-sm">Finish</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="alert alert-info">No active sessions at the moment.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-sm">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+          <h3 class="mb-0">Leave Request #{{ req.id }}</h3>
+          <div class="text-muted small">{{ req.operator.full_name or req.operator.username }}</div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.leave_queue') }}"><i class="bi bi-arrow-left"></i> Back</a>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-3"><span class="text-muted small">Type</span><div class="fw-semibold text-capitalize">{{ req.leave_type }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">Start</span><div class="fw-semibold">{{ req.start_date }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">End</span><div class="fw-semibold">{{ req.end_date }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">Hours/Day</span><div class="fw-semibold">{{ (req.hours_per_day or 8)|round(2) }}</div></div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <div class="small text-muted">Requested (working days)</div>
+          <div class="fw-semibold">{{ requested_days|round(2) }}</div>
+        </div>
+        <div class="col-md-8">
+          <div class="small text-muted">Balances</div>
+          <div class="border rounded p-2 small">
+            <div><span class="text-muted">Annual:</span> Total {{ balances.annual_total }} • Used {{ balances.annual_used }} • Available <span class="fw-semibold">{{ balances.annual_available }}</span></div>
+            <div><span class="text-muted">Sick (36 mo):</span> Total {{ balances.sick_total_cycle }} • Used {{ balances.sick_used_cycle }} • Available <span class="fw-semibold">{{ balances.sick_available_cycle }}</span></div>
+            <div><span class="text-muted">Family (year):</span> Total {{ balances.family_total_year }} • Used {{ balances.family_used_year }} • Available <span class="fw-semibold">{{ balances.family_available_year }}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <span class="text-muted small d-block">Notes</span>
+        <div class="border rounded p-2">{{ req.notes or '—' }}</div>
+      </div>
+
+      <form method="post" class="border rounded p-3">
+        {{ form.hidden_tag() }}
+        {{ form.request_id(value=req.id) }}
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Decision</label>
+            {{ form.decision(class="form-select") }}
+            {% if not is_unlimited and requested_days > available_for_type %}
+              <div class="form-text text-warning">This request exceeds available balance ({{ available_for_type|round(2) }} days).</div>
+            {% endif %}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Approver Notes</label>
+            {{ form.notes(class="form-control", rows="3") }}
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          {{ form.submit(class="btn btn-primary") }}
+          <a class="btn btn-light" href="{{ url_for('attendance.leave_queue') }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

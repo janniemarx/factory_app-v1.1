@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2 class="mb-3 text-center">Moulded Cornice Production Sessions</h2>
+  <table class="table table-hover shadow-sm">
+    <thead>
+      <tr>
+        <th>Session ID</th>
+        <th>Batch</th>
+        <th>Machine</th>
+        <th>Mould</th>
+        <th>Operator</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Ended</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for session in sessions %}
+      <tr>
+        <td>{{ session.id }}</td>
+        <td>
+          {% if session.pre_expansion %}
+          <a href="{{ url_for('pre_expansion.view_pre_expansion_detail', pre_expansion_id=session.pre_expansion.id) }}">
+            {{ session.pre_expansion.batch_no }}
+          </a>
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{{ session.machine.name if session.machine else '-' }}</td>
+        <td>{{ session.mould_number }}</td>
+        <td>
+          {% if session.operator %}{{ session.operator.full_name or session.operator.username }}{% else %}-{% endif %}
+        </td>
+        <td>{{ session.status|capitalize }}</td>
+        <td>
+          {% if session.start_time %}
+            {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>
+          {% if session.end_time %}
+            {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ url_for('moulded_cornice.session_detail', session_id=session.id) }}" class="btn btn-outline-primary btn-sm">View</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" class="text-center text-muted">No sessions found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <a href="{{ url_for('moulded_cornice.start_session') }}" class="btn btn-success w-100 mt-3">Start New Session</a>
+</div>
+{% endblock %}

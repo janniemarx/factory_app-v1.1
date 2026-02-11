@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-3">Batches Ready for Boxing</h2>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Profile</th>
+                <th>Block Number</th>
+                <th>Operator</th>
+                <th>Cornices (QC)</th>
+                <th>QC Date</th>
+                <th>QC By</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for record in records %}
+              <tr>
+                <td>{{ record.id }}</td>
+                <td>{{ record.profile_code }}</td>
+                <td>{{ record.block_number }}</td>
+                <td>
+                  {% if record.block and record.block.operator %}
+                    {{ record.block.operator.full_name or record.block.operator.username }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  {% if record.quality_control %}
+                    {{ record.quality_control.cornices_count_qc }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  {% if record.quality_control %}
+                    {{ record.quality_control.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  {% if record.quality_control and record.quality_control.qc_operator %}
+                    {{ record.quality_control.qc_operator.full_name or record.quality_control.qc_operator.username }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="8" class="text-center text-muted">No batches ready for boxing yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

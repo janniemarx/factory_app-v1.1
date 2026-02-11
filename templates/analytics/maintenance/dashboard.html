@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-3">
+  <h3>Maintenance KPIs</h3>
+  <form method="post" class="row g-2 mb-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-2">{{ form.technician_id.label(class='form-label') }}{{ form.technician_id(class='form-select form-select-sm') }}</div>
+    <div class="col-md-2">{{ form.status.label(class='form-label') }}{{ form.status(class='form-select form-select-sm') }}</div>
+    <div class="col-md-2">{{ form.date_from.label(class='form-label') }}{{ form.date_from(class='form-control form-control-sm') }}</div>
+    <div class="col-md-2">{{ form.date_to.label(class='form-label') }}{{ form.date_to(class='form-control form-control-sm') }}</div>
+    <div class="col-md-2 d-flex align-items-end">{{ form.submit(class='btn btn-primary btn-sm w-100') }}</div>
+  </form>
+  <div class="row g-3 mb-3">
+    {% for title, val in [
+      ('Total Jobs', analytics.total_jobs),
+      ('MTTR (h)', analytics.mttr_h),
+      ('Avg Backlog Age (d)', analytics.avg_backlog_age_d),
+    ] %}
+    <div class="col-md-2 col-6">
+      <div class="p-2 border rounded small bg-white h-100">
+        <div class="text-muted text-uppercase small fw-semibold">{{ title }}</div>
+        <div class="fs-6 fw-bold">{{ val }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <h6 class="mt-4">Status Breakdown</h6>
+  <div class="table-responsive small">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-light"><tr><th>Status</th><th>Jobs</th></tr></thead>
+      <tbody>
+        {% for row in analytics.status_breakdown %}
+        <tr><td class="text-capitalize">{{ row.status.replace('_',' ') }}</td><td>{{ row.count }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="text-center text-muted">No jobs for filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

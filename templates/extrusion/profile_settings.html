@@ -1,0 +1,231 @@
+{# templates/extrusion/profile_settings.html #}
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .setpoints-grid{display:grid;gap:.75rem}
+  @media (min-width:768px){.setpoints-grid{grid-template-columns:repeat(2,1fr)}}
+  @media (min-width:1200px){.setpoints-grid{grid-template-columns:repeat(3,1fr)}}
+  .heat-grid{display:grid;gap:.75rem;margin-top:.25rem}
+  @media (min-width:768px){.heat-grid{grid-template-columns:repeat(4,1fr)}}
+  @media (min-width:1200px){.heat-grid{grid-template-columns:repeat(6,1fr)}}
+  .form-label{font-weight:600;font-size:.9rem;margin-bottom:.25rem}
+</style>
+
+<div class="row justify-content-center mt-4">
+  <div class="col-xl-9 col-lg-10">
+    <div class="card shadow p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="mb-0">Settings — {{ profile.code }}</h2>
+        <a href="{{ next or url_for('extrusion.profiles_list') }}" class="btn btn-link">← Back</a>
+      </div>
+
+      <<form id="settings-form" method="post" autocomplete="off">
+        {{ form.hidden_tag() }}
+        {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+
+        <div class="row g-2 mb-2">
+          <div class="col-md-4">
+            {{ form.extruder_id.label(class="form-label") }}
+            {{ form.extruder_id(class="form-select", id="extruder_id") }}
+          </div>
+        </div>
+
+        <h5 class="mt-2 mb-2">Core Setpoints</h5>
+        <div class="setpoints-grid">
+          {# Machine-2 (RPM + flows) #}
+          <div class="setpoint mc2">
+            {{ form.rpm.label(class="form-label") }}
+            <div class="input-group">{{ form.rpm(class="form-control") }}<span class="input-group-text">RPM</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.gpps_kg_h.label(class="form-label") }}
+            <div class="input-group">{{ form.gpps_kg_h(class="form-control") }}<span class="input-group-text">kg/h</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.talc_kg_h.label(class="form-label") }}
+            <div class="input-group">{{ form.talc_kg_h(class="form-control") }}<span class="input-group-text">kg/h</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.fire_retardant_kg_h.label(class="form-label") }}
+            <div class="input-group">{{ form.fire_retardant_kg_h(class="form-control") }}<span class="input-group-text">kg/h</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.recycling_kg_h.label(class="form-label") }}
+            <div class="input-group">{{ form.recycling_kg_h(class="form-control") }}<span class="input-group-text">kg/h</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.co2_kg_h.label(class="form-label") }}
+            <div class="input-group">{{ form.co2_kg_h(class="form-control") }}<span class="input-group-text">kg/h</span></div>
+          </div>
+          <div class="setpoint mc2">
+            {{ form.alcohol_l_h.label(class="form-label") }}
+            <div class="input-group">{{ form.alcohol_l_h(class="form-control") }}<span class="input-group-text">L/h</span></div>
+          </div>
+
+          {# Machine-1 (Hz controls) #}
+          <div class="setpoint mc1">
+            {{ form.extruder_hz.label(class="form-label") }}
+            <div class="input-group">{{ form.extruder_hz(class="form-control") }}<span class="input-group-text">Hz</span></div>
+          </div>
+          <div class="setpoint mc1">
+            {{ form.co2_hz.label(class="form-label") }}
+            <div class="input-group">{{ form.co2_hz(class="form-control") }}<span class="input-group-text">Hz</span></div>
+          </div>
+          <div class="setpoint mc1">
+            {{ form.alcohol_hz.label(class="form-label") }}
+            <div class="input-group">{{ form.alcohol_hz(class="form-control") }}<span class="input-group-text">Hz</span></div>
+          </div>
+          <div class="setpoint mc1">
+            {{ form.oil_hz.label(class="form-label") }}
+            <div class="input-group">{{ form.oil_hz(class="form-control") }}<span class="input-group-text">Hz</span></div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <h5 class="mb-2">Heat Zones</h5>
+
+          {# Machine-1 grid (#labels map to JSON keys shown below) #}
+          <div class="heat-grid mc1">
+            {% for label, key in [
+              ('Mould','mould'),
+              ('Flange 3','flange3'),
+              ('Flange 2','flange2'),
+              ('Confluent2','confluent2'),
+              ('Confluent1','confluent1'),
+              ('Flange1','flange1'),
+              ('Barrel6','barrel6'),
+              ('Barrel5','barrel5'),
+              ('Barrel4','barrel4'),
+              ('Barrel3','barrel3'),
+              ('Barrel2','barrel2'),
+              ('Barrel1','barrel1'),
+            ] %}
+              <div>
+                <label class="form-label">{{ label }}</label>
+                <div class="input-group">
+                  <input id="ht_{{ key }}" type="number" step="1" class="form-control" inputmode="numeric" />
+                  <span class="input-group-text">°C</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          {# Machine-2 grid (your old names) #}
+          <div class="heat-grid mc2">
+            {% for label, key, unit in [
+              ('Head','heat_ex','°C'),
+              ('Mould','mould','°C'),
+              ('Before Hex','before_hex','°C'),
+              ('After Hex','after_hex','°C'),
+              ('Heating 1','z1','°C'),
+              ('Heating 2','z2','°C'),
+              ('Heating 3','z3','°C'),
+              ('Heating 4','z4','°C'),
+              ('Heating 5','z5','°C'),
+              ('Heating 6','z6','°C'),
+              ('Heating 7','z7','°C'),
+              ('Heating 8','z8','°C'),
+              ('Heating 9','z9','°C'),
+              ('Traction','traction','rpm'),
+            ] %}
+              <div>
+                <label class="form-label">{{ label }}</label>
+                <div class="input-group">
+                  <input id="ht_{{ key }}" type="number" step="1" class="form-control" inputmode="numeric" />
+                  <span class="input-group-text">{{ unit }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="form-text mt-1">Machine-1: all °C. Machine-2: zones in °C, traction in rpm.</div>
+        </div>
+
+        <div class="mt-3">
+          {{ form.notes.label(class="form-label") }}
+          {{ form.notes(class="form-control") }}
+        </div>
+
+        <div class="d-none">
+          {{ form.heat_table_json(id="heat_table_json") }}
+          {{ form.effective_from() }}
+        </div>
+
+        <div class="d-grid mt-3">
+          <button class="btn btn-primary">{{ form.submit.label.text }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('settings-form');
+  const extruderSel = document.getElementById('extruder_id');
+  const textarea = document.getElementById('heat_table_json');
+
+  function isM1(){ return parseInt(extruderSel.value, 10) === 1; }
+  function visGrid(){ return document.querySelector(isM1() ? '.heat-grid.mc1' : '.heat-grid.mc2'); }
+
+  function toggleMachine(){
+    document.querySelectorAll('.mc1').forEach(el => el.style.display = isM1() ? '' : 'none');
+    document.querySelectorAll('.mc2').forEach(el => el.style.display = isM1() ? 'none' : '');
+  }
+
+  function forEachVisibleHeat(cb){
+    const grid = visGrid();
+    grid.querySelectorAll('input[id^="ht_"]').forEach(inp => {
+      const key = inp.id.replace(/^ht_/, '');
+      cb(inp, key);
+    });
+  }
+
+  function loadFromJSON(){
+    let data = {};
+    try { data = JSON.parse(textarea.value || '{}') || {}; } catch(e){}
+    forEachVisibleHeat((el, key) => {
+      const v = data[key];
+      el.value = (v !== undefined && v !== null && v !== '') ? v : '';
+    });
+  }
+
+  function saveToJSON(){
+    const out = {};
+    forEachVisibleHeat((el, key) => {
+      const v = el.value;
+      if (v !== '' && v !== null && v !== undefined) {
+        const n = Number(v);
+        out[key] = Number.isNaN(n) ? v : n;
+      }
+    });
+    textarea.value = JSON.stringify(out);
+  }
+
+  // When machine changes, reload so server pre-fills the correct row (preserve `next`)
+  extruderSel.addEventListener('change', ()=>{
+    const base = "{{ url_for('extrusion.profile_settings_manage', profile_id=profile.id) }}";
+    const nextParam = "{{ (next|urlencode)|default('', true) }}";
+    let url = base + "?extruder_id=" + encodeURIComponent(extruderSel.value);
+    if (nextParam) url += "&next=" + nextParam;
+    window.location.href = url;
+  });
+
+  form.addEventListener('input', (e)=>{
+    if (e.target && e.target.matches('.heat-grid input[id^="ht_"]')) saveToJSON();
+  });
+
+  form.addEventListener('submit', saveToJSON);
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    toggleMachine();
+    loadFromJSON();
+    saveToJSON();
+  });
+})();
+</script>
+
+
+{% endblock %}

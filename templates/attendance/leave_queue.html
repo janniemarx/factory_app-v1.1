@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mt-4 mb-3">
+    <div>
+      <h2 class="mb-0">Leave Requests</h2>
+      <div class="text-muted small">Pending approval.</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.leave_balances') }}">View Balances</a>
+      <a class="btn btn-primary btn-sm" href="{{ url_for('attendance.leave_new') }}"><i class="bi bi-plus-lg"></i> Capture Leave</a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Hours/Day</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in pending %}
+          <tr>
+            <td>{{ r.operator.full_name or r.operator.username }}</td>
+            <td class="text-capitalize">{{ r.leave_type }}</td>
+            <td>{{ r.start_date }}</td>
+            <td>{{ r.end_date }}</td>
+            <td>{{ (r.hours_per_day or 8)|round(2) }}</td>
+            <td class="small text-muted">{{ r.notes or '' }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-primary" href="{{ url_for('attendance.leave_review', request_id=r.id) }}">Open</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted">Nothing pending.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if download_id %}
+<script>
+(async () => {
+  const url = "{{ url_for('attendance.leave_print', request_id=download_id) }}";
+  try {
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Extract filename from Content-Disposition if present
+    let filename = 'leave.pdf';
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+    if (m) filename = decodeURIComponent(m[1].replace(/["']/g, ''));
+    // Create blob and trigger download
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    // Fallback: navigate directly to the PDF
+    window.location.href = url;
+  }
+  // Clean the URL to avoid re-trigger on refresh
+  try {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('download');
+    history.replaceState({}, '', u);
+  } catch (_e) {}
+})();
+</script>
+{% endif %}
+
+{% endblock %}

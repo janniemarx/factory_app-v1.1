@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Operator Maintenance{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+  <h3>Operator Maintenance</h3>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-3">
+      {{ filter_form.room_number.label(class="form-label") }}
+      {{ filter_form.room_number(class="form-select") }}
+    </div>
+    <div class="col-md-3">
+      {{ filter_form.name_like.label(class="form-label") }}
+      {{ filter_form.name_like(class="form-control", placeholder="Name or username or emp no") }}
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <div class="form-check">
+        {{ filter_form.active_only(class="form-check-input") }}
+        <label class="form-check-label" for="{{ filter_form.active_only.id }}">Active only</label>
+      </div>
+    </div>
+
+    {% if use_night_plan %}
+      {# NEW: week picker for the Night Plan preview/links #}
+      <div class="col-md-3">
+        <label class="form-label">Night Plan Week (any date)</label>
+        <input type="date" name="week" class="form-control"
+               value="{{ plan_week.isoformat() }}">
+        <div class="form-text">Will anchor to {{ plan_week.strftime('%Y-%m-%d') }} (Monday).</div>
+      </div>
+    {% endif %}
+
+    <div class="col-md-1 d-flex align-items-end">
+      {{ filter_form.submit(class="btn btn-primary w-100") }}
+    </div>
+  </form>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Username</th>
+            <th>Emp No</th>
+            <th>Room</th>
+            <th>Active</th>
+            <th>Night Shift</th>
+            <th></th>
+            {% if use_night_plan %}
+              <th>Night Plan ({{ plan_week.strftime('%Y-%m-%d') }})</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for op in operators %}
+            {% set row = form.rows[loop.index0] %}
+            {{ row.operator_id(value=op.id) }}
+            {% set p = plans.get(op.id) %}
+            <tr>
+              <td>{{ op.full_name or op.username }}</td>
+              <td>{{ op.username }}</td>
+              <td>{{ op.emp_no or "" }}</td>
+              <td>{{ op.room_number if op.room_number is not none else "—" }}</td>
+              <td>
+                {% if op.active %}
+                  <span class="badge text-bg-success">Active</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">Inactive</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="form-check form-switch">
+                  {{ row.is_night_shift(class="form-check-input") }}
+                </div>
+              </td>
+              <td>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('attendance.operator_edit', operator_id=op.id) }}">Edit</a>
+              </td>
+              {% if use_night_plan %}
+                <td class="small">
+                  {% set days = [('mon','Mon'),('tue','Tue'),('wed','Wed'),('thu','Thu'),('fri','Fri'),('sat','Sat'),('sun','Sun')] %}
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    {% for key, lbl in days %}
+                      <div class="form-check form-check-inline m-0">
+                        {{ row.night_checkbox(key, p, class='form-check-input') }}
+                        <label class="form-check-label small">{{ lbl }}</label>
+                      </div>
+                    {% endfor %}
+                    <a class="btn btn-outline-secondary btn-sm ms-1" href="{{ url_for('attendance.night_plan', operator_id=op.id, week=plan_week.isoformat()) }}">Full</a>
+                  </div>
+                </td>
+              {% endif %}
+            </tr>
+          {% else %}
+            <tr><td colspan="{{ 8 if use_night_plan else 7 }}" class="text-center text-muted">No operators found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-end mb-3">
+      {{ form.submit(class="btn btn-success") }}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block content %}
+{% macro badge_status(s) -%}
+  {%- set m = {
+    'open':'secondary','assigned':'info','in_progress':'primary',
+    'in_review':'warning','rework_requested':'danger','closed':'success'
+  } -%}
+  <span class="badge bg-{{ m.get((s or 'open').lower(), 'secondary') }}">{{ (s or 'open').replace('_',' ')|capitalize }}</span>
+{%- endmacro %}
+
+{% macro badge_priority(p) -%}
+  {%- set m = {'low':'secondary','normal':'secondary','high':'warning','urgent':'danger'} -%}
+  <span class="badge bg-{{ m.get((p or 'normal').lower(),'secondary') }}">{{ (p or 'normal')|capitalize }}</span>
+{%- endmacro %}
+
+{% macro dhms(seconds) -%}
+  {%- set s = (seconds or 0)|int -%}
+  {%- set h = (s // 3600) -%}
+  {%- set m = ((s % 3600) // 60) -%}
+  {%- set ss = (s % 60) -%}
+  {{ "%02d:%02d:%02d"|format(h, m, ss) }}
+{%- endmacro %}
+
+{# Read current filters from the query string #}
+{% set current_status = request.args.get('status','') %}
+{% set mine_checked = request.args.get('mine') in ['1','true','True','on'] %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-0">Maintenance Jobs</h2>
+            <div class="text-muted small">Filter by status or show only your jobs.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-primary" href="{{ url_for('maintenance.job_new') }}"><i class="bi bi-plus-lg"></i> New Job</a>
+          </div>
+        </div>
+
+        <form method="get" class="row g-2 align-items-end mb-3">
+          <div class="col-md-4">
+            <label class="form-label mb-0">Status</label>
+            <select class="form-select" name="status">
+              {% for s in ['','open','assigned','in_progress','in_review','rework_requested','closed'] %}
+                <option value="{{ s }}" {{ 'selected' if current_status==s else '' }}>
+                  {{ 'All' if s=='' else s.replace('_',' ')|capitalize }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label mb-0">Mine only</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="mine" name="mine" value="1" {{ 'checked' if mine_checked else '' }}>
+              <label class="form-check-label" for="mine">Assigned to me</label>
+            </div>
+          </div>
+          <div class="col-md-5 d-flex gap-2">
+            <button class="btn btn-outline-primary mt-2 mt-md-0" type="submit"><i class="bi bi-funnel"></i> Apply</button>
+            <a class="btn btn-outline-secondary mt-2 mt-md-0" href="{{ url_for('maintenance.jobs_list') }}">Reset</a>
+          </div>
+        </form>
+
+        <!-- Mobile cards -->
+        <div class="d-md-none">
+          <div class="list-group">
+            {% for j in jobs %}
+              <a class="list-group-item list-group-item-action"
+                 href="{{ url_for('maintenance.job_detail',
+                                  job_id=j.id,
+                                  status=current_status,
+                                  mine=('1' if mine_checked else None)) }}">
+                <div class="d-flex justify-content-between">
+                  <div class="fw-semibold">#{{ j.id }} · {{ j.title }}</div>
+                  <div>{{ badge_status(j.status) }}</div>
+                </div>
+                <div class="text-muted small mt-1">
+                  {{ badge_priority(j.priority) }}
+                  · {{ j.location or j.asset_code or 'Unspecified' }}
+                </div>
+                <div class="text-muted small">
+                  Assigned: {{ j.assigned_to.full_name if j.assigned_to else '-' }}
+                  · Time: {{ dhms(j.total_work_seconds) }}
+                </div>
+              </a>
+            {% else %}
+              <div class="list-group-item text-center text-muted">No jobs found.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Desktop table -->
+        <div class="table-responsive d-none d-md-block">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:90px;">ID</th>
+                <th>Title</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned</th>
+                <th class="text-end" style="width:140px;">Total Time</th>
+                <th style="width:210px;">Created</th>
+                <th style="width:110px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for j in jobs %}
+              <tr>
+                <td>#{{ j.id }}</td>
+                <td>
+                  <div class="fw-semibold">{{ j.title }}</div>
+                  <div class="text-muted small">{{ (j.location or j.asset_code or '&nbsp;')|safe }}</div>
+                </td>
+                <td>{{ badge_priority(j.priority) }}</td>
+                <td>{{ badge_status(j.status) }}</td>
+                <td>{{ j.assigned_to.full_name if j.assigned_to else '-' }}</td>
+                <td class="text-end">{{ dhms(j.total_work_seconds) }}</td>
+                <td>{{ j.created_at.strftime('%Y-%m-%d %H:%M') if j.created_at else '-' }}</td>
+                <td>
+                  <a class="btn btn-sm btn-outline-primary"
+                     href="{{ url_for('maintenance.job_detail',
+                                      job_id=j.id,
+                                      status=current_status,
+                                      mine=('1' if mine_checked else None)) }}">
+                    Open
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="8" class="text-center text-muted">No jobs found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

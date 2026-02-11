@@ -1,0 +1,78 @@
+# Python byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+.python-version
+
+# Environment files / secrets
+.env
+.env.*
+.flaskenv
+
+# OS-specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Testing & type-check caches
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+.pylint.d/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+logs/
+*.log
+
+# Databases (keep migrations but ignore local DB files)
+*.sqlite
+*.sqlite3
+*.db
+/factory.db
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Local diagnostics output
+diagnostics/
+
+# Flask instance folder (runtime/local state)
+instance/
+instance/*
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Node (if ever used for assets)
+node_modules/
+
+# Local exports / temp (optional; create .gitkeep if needed)
+exports/
+tmp/
+
+# Source maps or compiled asset artifacts
+static/**/*.map

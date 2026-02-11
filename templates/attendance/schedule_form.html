@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mt-4 mb-3">
+    <div>
+      <h2 class="mb-0">Work Schedules</h2>
+      <div class="text-muted small">Default and overrides.</div>
+    </div>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('attendance.schedule_new') }}"><i class="bi bi-plus-lg"></i> New Schedule</a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Scope</th>
+            <th>Day Start</th>
+            <th>Day End</th>
+            <th>Lunch</th>
+            <th>Weekly Normal (h)</th>
+            <th>OT Round (m)</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in schedules %}
+          <tr>
+            <td>
+              {{ s.name }}
+              {% if s.is_default %}<span class="badge bg-secondary ms-1">Default</span>{% endif %}
+            </td>
+            <td class="small">
+              {% if s.operator_id %}Employee: {{ s.operator.full_name or s.operator.username }}
+              {% elif s.room_number %}Room: {{ s.room_number }}
+              {% else %}All{% endif %}
+            </td>
+            <td>{{ s.day_start.strftime('%H:%M') }}</td>
+            <td>{{ s.day_end.strftime('%H:%M') }}</td>
+            <td>{{ s.lunch_minutes }} min</td>
+            <td>{{ (s.weekly_normal_seconds/3600)|round(2) }}</td>
+            <td>{{ s.ot_round_minutes }}</td>
+            <td>{% if s.enabled %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('attendance.schedule_edit', schedule_id=s.id) }}">Edit</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-muted">No schedules yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

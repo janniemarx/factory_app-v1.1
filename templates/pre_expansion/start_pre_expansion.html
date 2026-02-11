@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow p-4">
+      <h2 class="mb-4 text-center">Start Pre-Expansion Session</h2>
+      <form method="post" id="preExpansionForm" autocomplete="off">
+        {{ form.hidden_tag() }}
+
+        <!-- Batch Number (not editable) -->
+        <div class="mb-3">
+          <label class="form-label"><b>Batch Number:</b></label>
+          <div class="form-control form-control-lg bg-light" id="batch_no_preview" style="pointer-events:none;"></div>
+          <div class="form-text text-muted">Generated automatically using today's date, density and purpose.</div>
+        </div>
+
+        <!-- MATERIAL TYPE -->
+        <div class="mb-3">
+          {{ form.material_type.label }}
+          {{ form.material_type(class="form-select form-select-lg", id="material_type", required=True) }}
+        </div>
+
+        <!-- Density (dropdown) -->
+        <div class="mb-3">
+          {{ form.density.label }}
+          {{ form.density(class="form-select form-select-lg", id="density", required=True) }}
+        </div>
+
+        <!-- Raw Material Before (Kg) -->
+        <div class="mb-3">
+          {{ form.planned_kg.label }}
+          {{ form.planned_kg(class="form-control form-control-lg", id="planned_kg", required=True) }}
+        </div>
+
+        <!-- Purpose -->
+        <div class="mb-3">
+          {{ form.purpose.label }}
+          {{ form.purpose(class="form-select form-select-lg", id="purpose", required=True) }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label"><b>Operator:</b> {{ current_user.full_name or current_user.username }}</label>
+        </div>
+
+        <!-- Hidden pre-checklist fields populated from the modal -->
+        <input type="hidden" name="check1"  id="hidden_check1">
+        <input type="hidden" name="check2"  id="hidden_check2">
+        <input type="hidden" name="check3"  id="hidden_check3">
+        <input type="hidden" name="check4"  id="hidden_check4">
+        <input type="hidden" name="check5"  id="hidden_check5">
+        <input type="hidden" name="check6"  id="hidden_check6">
+        <input type="hidden" name="check7"  id="hidden_check7">
+        <input type="hidden" name="check8"  id="hidden_check8">
+        <input type="hidden" name="check9"  id="hidden_check9">
+        <input type="hidden" name="check10" id="hidden_check10">
+
+        <button type="button" class="btn btn-primary btn-lg w-100" id="openChecklistBtn" data-bs-toggle="modal" data-bs-target="#checklistModal" disabled>
+          Start Pre-Expansion
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Checklist Modal -->
+<div class="modal fade" id="checklistModal" tabindex="-1" aria-labelledby="checklistModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="checklistModalLabel">Pre-Expansion Start Checklist</h5>
+      </div>
+      <div class="modal-body">
+        <form id="checklistForm" onsubmit="return false;">
+          <ul class="list-group mb-3">
+            <li class="list-group-item"><input type="checkbox" id="check1" required> 1. Check if all material in expansion chamber and in fluidized bed drier are cleared of lumps and other objects, and check agitating rods.</li>
+            <li class="list-group-item"><input type="checkbox" id="check2" required> 2. Check air filter and oil lubricator. Remove water in filter and add Viscosity Grade 10 oil in lubricator if oil level is low.</li>
+            <li class="list-group-item"><input type="checkbox" id="check3" required> 3. Before opening main steam valve, open drain valve to let water in main steam pipe out. Close drain valve.</li>
+            <li class="list-group-item"><input type="checkbox" id="check4" required> 4. Check pressure gauge, temperature gauge, current gauge, volt gauge and motors. Please report and repair any malfunction immediately.</li>
+            <li class="list-group-item"><input type="checkbox" id="check5" required> 5. Check electronic scale, if it's not precise, arrange for calibration.</li>
+            <li class="list-group-item"><input type="checkbox" id="check6" required> 6. Check earth Connection.</li>
+            <li class="list-group-item"><input type="checkbox" id="check7" required> 7. Check sealing of 80mm Butterfly valve on filling port and vent port. Replace seal immediately if leakage is detected.</li>
+            <li class="list-group-item"><input type="checkbox" id="check8" required> 8. Check all valves and pipes. Any leaks should be repaired immediately.</li>
+            <li class="list-group-item"><input type="checkbox" id="check9" required> 9. Manually test and check safety valve.</li>
+            <li class="list-group-item"><input type="checkbox" id="check10" required> 10. Pressure of expansion chamber is controlled by a pressure gauge switch, connection between the pressure gauge switch and the chamber is a copper pipe. Make sure Copper pipe is not blocked.</li>
+          </ul>
+          <div id="checklistError" class="alert alert-danger d-none">Please complete all checklist items before starting.</div>
+          <button type="button" class="btn btn-success w-100" onclick="submitChecklist()">Checklist Complete & Start</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Batch preview + form enablement (restored) =====
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function generateBatchNo() {
+  const today = todayISO();
+  const y = today.slice(0,4), m = today.slice(5,7), d = today.slice(8,10);
+  const densityRaw  = document.getElementById('density').value || '';
+  const purpose     = document.getElementById('purpose').value || '';
+
+  if (densityRaw && purpose) {
+    const density = String(densityRaw).replace('.', '');
+    const batchNo = `${y}${m}${d}-${density}-${purpose}`;
+    document.getElementById('batch_no_preview').innerText = batchNo;
+  } else {
+    document.getElementById('batch_no_preview').innerText = '';
+  }
+}
+function validatePreExpansionForm() {
+  const density  = document.getElementById('density').value;
+  const planned  = document.getElementById('planned_kg').value;
+  const purpose  = document.getElementById('purpose').value;
+  const btn = document.getElementById('openChecklistBtn');
+  btn.disabled = !(density && planned && purpose);
+}
+function updatePurposeOptions() {
+  const density = document.getElementById('density').value;
+  const purpose = document.getElementById('purpose');
+  const opts = Array.from(purpose.options);
+  const moulded = opts.find(o => o.value === 'Moulded');
+  if (density === '18') {
+    if (moulded) { moulded.disabled = true; moulded.hidden = true; }
+    if (purpose.value === 'Moulded') purpose.value = 'Block';
+  } else {
+    if (moulded) { moulded.disabled = false; moulded.hidden = false; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('density').addEventListener('change', () => { updatePurposeOptions(); generateBatchNo(); validatePreExpansionForm(); });
+  document.getElementById('purpose').addEventListener('change', () => { generateBatchNo(); validatePreExpansionForm(); });
+  document.getElementById('planned_kg').addEventListener('input', validatePreExpansionForm);
+
+  updatePurposeOptions();
+  generateBatchNo();
+  validatePreExpansionForm();
+});
+
+// ===== Submit checklist: populate existing hidden inputs (no duplicates) =====
+function submitChecklist() {
+  let allChecked = true;
+  for (let i = 1; i <= 10; i++) {
+    if (!document.getElementById('check' + i).checked) {
+      allChecked = false;
+      break;
+    }
+  }
+  if (!allChecked) {
+    document.getElementById('checklistError').classList.remove('d-none');
+    return;
+  }
+  for (let i = 1; i <= 10; i++) {
+    const hidden = document.getElementById('hidden_check' + i);
+    hidden.value = document.getElementById('check' + i).checked ? 'y' : '';
+  }
+  const modal = bootstrap.Modal.getInstance(document.getElementById('checklistModal'));
+  modal.hide();
+  document.getElementById('preExpansionForm').submit();
+}
+</script>
+{% endblock %}

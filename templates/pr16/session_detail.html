@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-7 col-lg-8 col-md-10">
+
+    <!-- Header / Snapshot -->
+    <div class="card shadow p-4 mb-4">
+      <h2 class="mb-2 text-center">PR16 Session: Block
+        <span class="text-primary">{{ block_no }}</span>
+      </h2>
+      <div class="mb-2 text-center">
+        <span class="badge bg-info text-dark fs-6 px-3 py-2">
+          {{ session.status|replace('_',' ')|capitalize }}
+        </span>
+        {% if session.status == 'active' and session.is_paused %}
+          <span class="badge bg-warning text-dark fs-6 px-3 py-2 ms-1">
+            <i class="bi bi-pause"></i> Paused
+          </span>
+        {% endif %}
+        {% if session.completed_at %}
+          <span class="ms-2 text-success fs-6">
+            <i class="bi bi-check-circle"></i> Trim completed: {{ session.completed_at.strftime('%Y-%m-%d %H:%M') }}
+          </span>
+        {% endif %}
+      </div>
+
+      <div class="text-center small text-muted mb-2">
+        Cut: <b>{{ cut_qty }}</b> · Wrapped: <b>{{ wrapped_qty }}</b> · Remaining to wrap:
+        <b class="{{ 'text-danger' if remaining_to_wrap>0 }}">{{ remaining_to_wrap }}</b>
+      </div>
+
+      <div class="text-center mb-2 small text-secondary">
+        Started: {{ session.started_at.strftime('%Y-%m-%d %H:%M') if session.started_at else "-" }}<br>
+        {% if session.drying_start %}
+          Drying: {{ session.drying_start.strftime('%Y-%m-%d %H:%M') }}
+          {% if session.drying_end %} → {{ session.drying_end.strftime('%Y-%m-%d %H:%M') }}{% endif %}<br>
+        {% endif %}
+        {% if session.trimming_start %}
+          Trimming: {{ session.trimming_start.strftime('%Y-%m-%d %H:%M') }}
+          {% if session.trimming_end %} → {{ session.trimming_end.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+        {% endif %}
+      </div>
+
+      <div class="text-center small text-muted">
+        {% if session.wrapping_duration_min %}Wrapping: {{ session.wrapping_duration_min }} min · {% endif %}
+        {% if session.drying_duration_min %}Drying: {{ session.drying_duration_min }} min · {% endif %}
+        {% if session.trimming_duration_min %}Trimming: {{ session.trimming_duration_min }} min{% endif %}
+      </div>
+
+      <div class="mb-2 text-center">
+        <b>Operator:</b> {{ session.operator.full_name or session.operator.username if session.operator else '[Unknown]' }}
+      </div>
+
+      <div class="text-center">
+        <a href="{{ url_for('pr16.sessions') }}" class="btn btn-link mt-2">← Back to PR16 Sessions</a>
+      </div>
+    </div>
+
+    {# =========================
+       WRAPPING (ACTIVE) STAGE
+       ========================= #}
+    {% if session.status == 'active' %}
+
+      {# ----- WHEN PAUSED: show ONLY this card, hide everything else ----- #}
+      {% if session.is_paused %}
+        <div class="card shadow p-4 mb-4">
+          <div class="alert alert-warning mb-3">
+            <i class="bi bi-exclamation-triangle"></i>
+            This wrapping session is <b>paused</b>. Resume to continue logging usage or production.
+          </div>
+          <form method="post" class="d-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button name="resume" class="btn btn-success btn-lg">
+              <i class="bi bi-play-fill"></i> Resume Wrapping
+            </button>
+          </form>
+        </div>
+      {% else %}
+      {# ----- NOT PAUSED: full wrapping UI ----- #}
+
+        <!-- Glue & Paper (wrapping only) -->
+        <div class="card shadow p-4 mb-4">
+          <h5 class="mb-3">Glue & Paper Usage</h5>
+          <form method="post" class="row g-2 align-items-end mb-3">
+            {{ add_resource_form.hidden_tag() }}
+            <div class="col-sm-5">
+              {{ add_resource_form.glue_kg.label(class="form-label mb-0") }}
+              {{ add_resource_form.glue_kg(class="form-control form-control-lg", placeholder="0.0") }}
+            </div>
+            <div class="col-sm-5">
+              {{ add_resource_form.paper_m.label(class="form-label mb-0") }}
+              {{ add_resource_form.paper_m(class="form-control form-control-lg", placeholder="0.0") }}
+            </div>
+            <div class="col-sm-2">
+              <button name="add_resource_usage" class="btn btn-primary w-100 btn-lg">Add</button>
+            </div>
+          </form>
+
+          <!-- usage log -->
+          <ul class="list-group mt-2">
+            {% set grouped = {} %}
+            {% for usage in resource_usages %}
+              {% set ts = usage.timestamp.strftime('%Y-%m-%d %H:%M') %}
+              {% if ts not in grouped %}
+                {% set _ = grouped.__setitem__(ts, {'glue': None, 'paper': None}) %}
+              {% endif %}
+              {% set _ = grouped[ts].__setitem__(usage.resource_type, usage.amount) %}
+            {% endfor %}
+            {% for ts, values in grouped.items() %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span class="text-muted">{{ ts }}</span>
+                <span>
+                  <span class="badge bg-primary me-2">Glue: <b>{{ values.glue or 0 }}</b> kg</span>
+                  <span class="badge bg-info text-dark">Paper: <b>{{ values.paper or 0 }}</b> m</span>
+                </span>
+              </li>
+            {% else %}
+              <li class="list-group-item text-muted">No resource logs yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Wrapping Production -->
+        <div class="card shadow p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Wrapping Production</h5>
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button name="pause" class="btn btn-outline-warning btn-sm">
+                <i class="bi bi-pause"></i> Pause
+              </button>
+            </form>
+          </div>
+
+          <form method="post" class="row g-2 align-items-end mb-3">
+            {{ wrap_form.hidden_tag() }}
+            <div class="col-sm-8">
+              {{ wrap_form.cornices_wrapped.label(class="form-label mb-0") }}
+              {{ wrap_form.cornices_wrapped(class="form-control form-control-lg") }}
+            </div>
+            <div class="col-sm-4">
+              <button name="save_wrapped" class="btn btn-success w-100 btn-lg">Add</button>
+            </div>
+          </form>
+
+          <ul class="list-group mt-2">
+            {% for w in wrapped %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ w.logged_at.strftime('%Y-%m-%d %H:%M') }}</span>
+              <span class="badge bg-success fs-6">Wrapped: <b>{{ w.cornices_wrapped }}</b></span>
+            </li>
+            {% else %}
+              <li class="list-group-item text-muted">No wrapping logged yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Finish wrapping -->
+        <div class="card shadow p-4 mb-4">
+          <div class="d-grid">
+            <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#finishWrappingModal">
+              Complete Wrapping & Start Drying
+            </button>
+            {% if remaining_to_wrap > 0 %}
+              <div class="form-text text-danger text-center mt-2">
+                Finishing now will mark the remaining {{ remaining_to_wrap }} as <b>wrapping damage</b>.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+      {% endif %} {# /not paused #}
+    {% endif %} {# /active #}
+
+    {# =========================
+       DRYING STAGE
+       ========================= #}
+    {% if session.status == 'in_drying' %}
+      <div class="card shadow p-4 mb-4">
+        <h5 class="mb-3">Drying</h5>
+        <div class="text-muted mb-3">
+          Started: {{ session.drying_start.strftime('%Y-%m-%d %H:%M') if session.drying_start else '-' }}
+        </div>
+        <form method="post">
+          {{ drying_form.hidden_tag() }}
+          <button name="complete_drying" class="btn btn-primary w-100 btn-lg">Complete Drying / Start Trimming</button>
+        </form>
+      </div>
+    {% endif %}
+
+    {# =========================
+       TRIMMING STAGE
+       ========================= #}
+    {% if session.status == 'trimming' %}
+      {% if session.is_trim_paused %}
+        <div class="card shadow p-4 mb-4">
+          <div class="alert alert-warning mb-3">
+            <i class="bi bi-exclamation-triangle"></i>
+            Trimming is <b>paused</b>. Resume to continue.
+          </div>
+          <form method="post" class="d-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button name="resume_trim" class="btn btn-success btn-lg">
+              <i class="bi bi-play-fill"></i> Resume Trimming
+            </button>
+          </form>
+        </div>
+      {% else %}
+        <div class="card shadow p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Trimming</h5>
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button name="pause_trim" class="btn btn-outline-warning btn-sm">
+                <i class="bi bi-pause"></i> Pause
+              </button>
+            </form>
+          </div>
+
+          <div class="text-muted mb-3">
+            Started: {{ session.trimming_start.strftime('%Y-%m-%d %H:%M') if session.trimming_start else '-' }}
+          </div>
+
+          <form method="post">
+            {{ trim_form.hidden_tag() }}
+            <div class="mb-2">
+              {{ trim_form.cornices_trimmed.label(class="form-label") }}
+              {{ trim_form.cornices_trimmed(class="form-control form-control-lg") }}
+            </div>
+            <div class="form-text mb-3">
+              You wrapped {{ wrapped_qty }}. Any difference will be recorded as <b>trimming damage</b>.
+            </div>
+            <button name="save_trimmed" class="btn btn-success w-100 btn-lg">Save Trimmed & Move to QC</button>
+          </form>
+        </div>
+      {% endif %}
+    {% endif %}
+    
+
+    <!-- Finish Wrapping Modal -->
+    <div class="modal fade" id="finishWrappingModal" tabindex="-1" aria-modal="false" role="dialog">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <form method="post">
+            {{ finish_wrap_form.hidden_tag() }}
+            <div class="modal-header">
+              <h5 class="modal-title">Finish Wrapping</h5>
+            </div>
+            <div class="modal-body">
+              {% if remaining_to_wrap > 0 %}
+                <div class="alert alert-warning">
+                  <b>{{ remaining_to_wrap }}</b> cornices are not wrapped. They will be recorded as <b>wrapping damage</b>.
+                </div>
+              {% endif %}
+              {{ finish_wrap_form.end_partial_roll.label(class="form-label") }}
+              {{ finish_wrap_form.end_partial_roll(class="form-select form-select-lg") }}
+              <div class="form-text">
+                We’ll subtract this leftover from paper used. (¼ ≈ 75 m, ½ ≈ 150 m, ¾ ≈ 225 m)
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" name="complete_wrapping" class="btn btn-primary">
+                Complete Wrapping & Start Drying
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  /* compact, airy look */
+  .section-card { border: 1px solid rgba(0,0,0,.06); border-radius: .8rem; }
+  .section-header { padding: .75rem 1rem; border-bottom: 1px solid rgba(0,0,0,.06); }
+  .section-header h5 { margin: 0; display: flex; align-items: center; gap: .5rem; }
+  .section-body { padding: .75rem 1rem; }
+  .table thead th { font-weight: 600; }
+  .table td, .table th { vertical-align: middle; }
+  .empty-state { padding: 1rem; color: #6c757d; text-align: center; }
+  .pill { font-size: .75rem; }
+  .meta { color:#6c757d; font-size:.875rem; }
+  @media (max-width: 767.98px) {
+    .list-card { border: 1px solid rgba(0,0,0,.06); border-radius: .75rem; padding: .75rem; }
+  }
+</style>
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+
+        <!-- Page header -->
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-1">Batches Pending Quality Control</h2>
+            <div class="text-muted small">Review and approve batches from cutting, PR16, profile boxing, and moulded boxing.</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge rounded-pill bg-secondary pill">Cutting: {{ cutting_records|length }}</span>
+            <span class="badge rounded-pill bg-secondary pill">PR16: {{ pr16_pending|length }}</span>
+            <span class="badge rounded-pill bg-secondary pill">Boxing: {{ boxing_pending|length }}</span>
+            <span class="badge rounded-pill bg-secondary pill">Moulded: {{ moulded_pending|length }}</span>
+          </div>
+        </div>
+
+        <!-- ========= CUTTING ========= -->
+        <div class="section-card mb-3">
+          <div class="section-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-scissors"></i> Profile Cutting Sessions</h5>
+            <span class="badge bg-warning text-dark">Pending</span>
+          </div>
+          <div class="section-body">
+
+            <!-- Mobile / tablet -->
+            <div class="d-md-none d-grid gap-2">
+              {% for record in cutting_records %}
+                <div class="list-card">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div class="fw-semibold">#{{ record.id }} · {{ record.profile_code }}</div>
+                      <div class="meta">
+                        Block {{ record.block_number or '-' }}
+                        · Operator:
+                        {% if record.block and record.block.operator %}
+                          {{ record.block.operator.full_name or record.block.operator.username }}
+                        {% else %}-{% endif %}
+                      </div>
+                      <div class="meta">
+                        Cut: {{ record.cornices_produced or 0 }}
+                        · Ended:
+                        {% if record.session and record.session.end_time %}
+                          {{ record.session.end_time.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}-{% endif %}
+                      </div>
+                    </div>
+                    <div class="ms-2">
+                      <a class="btn btn-primary btn-sm" href="{{ url_for('qc.quality_control', cutting_production_id=record.id) }}">QC</a>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="empty-state">No cutting batches pending quality control.</div>
+              {% endfor %}
+            </div>
+
+            <!-- Desktop -->
+            <div class="table-responsive d-none d-md-block">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:90px;">ID</th>
+                    <th>Profile</th>
+                    <th>Block</th>
+                    <th>Operator</th>
+                    <th class="text-end" style="width:140px;">Cornices Cut</th>
+                    <th style="width:210px;">Cut End</th>
+                    <th style="width:120px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for record in cutting_records %}
+                  <tr>
+                    <td>#{{ record.id }}</td>
+                    <td>{{ record.profile_code }}</td>
+                    <td>{{ record.block_number or '-' }}</td>
+                    <td>
+                      {% if record.block and record.block.operator %}
+                        {{ record.block.operator.full_name or record.block.operator.username }}
+                      {% else %}-{% endif %}
+                    </td>
+                    <td class="text-end">{{ record.cornices_produced or 0 }}</td>
+                    <td>
+                      {% if record.session and record.session.end_time %}
+                        {{ record.session.end_time.strftime('%Y-%m-%d %H:%M') }}
+                      {% else %}-{% endif %}
+                    </td>
+                    <td><a class="btn btn-primary btn-sm" href="{{ url_for('qc.quality_control', cutting_production_id=record.id) }}">QC Now</a></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="7" class="empty-state">No cutting batches pending quality control.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========= PR16 ========= -->
+        <div class="section-card mb-3">
+          <div class="section-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-box"></i> PR16 Sessions</h5>
+            <span class="badge bg-warning text-dark">Pending</span>
+          </div>
+          <div class="section-body">
+
+            <!-- Mobile / tablet -->
+            <div class="d-md-none d-grid gap-2">
+              {% for s in pr16_pending %}
+                <div class="list-card">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div class="fw-semibold">Session #{{ s.id }}</div>
+                      <div class="meta">Block {{ s.block.block_number if s.block else s.block_id }} · Trimmed {{ s.trimmed_cornices or 0 }}</div>
+                      <div class="meta">Status {{ (s.status or '')|replace('_',' ')|capitalize }}{% if s.trimming_end %} · Trim End {{ s.trimming_end.strftime('%Y-%m-%d %H:%M') }}{% endif %}</div>
+                    </div>
+                    <div class="ms-2">
+                      <a class="btn btn-primary btn-sm" href="{{ url_for('qc.pr16_quality_control', session_id=s.id) }}">QC</a>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="empty-state">No PR16 sessions awaiting QC.</div>
+              {% endfor %}
+            </div>
+
+            <!-- Desktop -->
+            <div class="table-responsive d-none d-md-block">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:110px;">Session</th>
+                    <th>Block</th>
+                    <th class="text-end" style="width:140px;">Trimmed</th>
+                    <th style="width:210px;">Trim End</th>
+                    <th style="width:140px;">Status</th>
+                    <th style="width:120px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in pr16_pending %}
+                  <tr>
+                    <td>#{{ s.id }}</td>
+                    <td>{{ s.block.block_number if s.block else s.block_id }}</td>
+                    <td class="text-end">{{ s.trimmed_cornices or 0 }}</td>
+                    <td>{{ s.trimming_end.strftime('%Y-%m-%d %H:%M') if s.trimming_end else '-' }}</td>
+                    <td><span class="badge bg-secondary">{{ (s.status or '')|replace('_',' ')|capitalize }}</span></td>
+                    <td><a class="btn btn-primary btn-sm" href="{{ url_for('qc.pr16_quality_control', session_id=s.id) }}">QC Now</a></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="6" class="empty-state">No PR16 sessions awaiting QC.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========= PROFILE BOXING (cutting or extrusion source) ========= -->
+        <div class="section-card mb-3">
+          <div class="section-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-bag-check"></i> Profile Boxing Sessions</h5>
+            <span class="badge bg-warning text-dark">Pending</span>
+          </div>
+          <div class="section-body">
+
+            <!-- Mobile / tablet -->
+            <div class="d-md-none d-grid gap-2">
+              {% for s in boxing_pending %}
+                <div class="list-card">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div class="fw-semibold">Boxing #{{ s.id }} · {{ s.profile_code or '-' }}</div>
+                      <div class="meta">
+                        {% if s.source_type == 'cutting' %}
+                          Block {{ s.cutting_production.block_number if s.cutting_production else '-' }}
+                        {% else %}
+                          Source Extrusion #{{ s.extrusion_session_id }}
+                        {% endif %}
+                        · Boxes {{ s.boxes_packed or 0 }} · Leftovers {{ s.leftovers or 0 }}
+                      </div>
+                      <div class="meta">Operator {{ s.operator.full_name if s.operator else '-' }} · Ended {{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</div>
+                    </div>
+                    <div class="ms-2">
+                      <a class="btn btn-primary btn-sm" href="{{ url_for('boxing.boxing_qc', session_id=s.id) }}">QC</a>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="empty-state">No profile boxing sessions pending QC.</div>
+              {% endfor %}
+            </div>
+
+            <!-- Desktop -->
+            <div class="table-responsive d-none d-md-block">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:110px;">Boxing ID</th>
+                    <th>Profile</th>
+                    <th>Source</th>
+                    <th>Operator</th>
+                    <th class="text-end" style="width:110px;">Boxes</th>
+                    <th class="text-end" style="width:130px;">Leftovers</th>
+                    <th style="width:210px;">Ended</th>
+                    <th style="width:120px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in boxing_pending %}
+                  <tr>
+                    <td>#{{ s.id }}</td>
+                    <td>{{ s.profile_code or '-' }}</td>
+                    <td>
+                      {% if s.source_type == 'cutting' %}
+                        Block {{ s.cutting_production.block_number if s.cutting_production else '-' }}
+                      {% else %}
+                        Extrusion #{{ s.extrusion_session_id }}
+                      {% endif %}
+                    </td>
+                    <td>{{ s.operator.full_name if s.operator else '-' }}</td>
+                    <td class="text-end">{{ s.boxes_packed or 0 }}</td>
+                    <td class="text-end">{{ s.leftovers or 0 }}</td>
+                    <td>{{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</td>
+                    <td><a class="btn btn-primary btn-sm" href="{{ url_for('boxing.boxing_qc', session_id=s.id) }}">QC Now</a></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="8" class="empty-state">No profile boxing sessions pending QC.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========= MOULDED BOXING ========= -->
+        <div class="section-card">
+          <div class="section-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-box-seam"></i> Moulded Boxing Sessions</h5>
+            <span class="badge bg-warning text-dark">Pending</span>
+          </div>
+          <div class="section-body">
+
+            <!-- Mobile / tablet -->
+            <div class="d-md-none d-grid gap-2">
+              {% for s in moulded_pending %}
+                <div class="list-card">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div class="fw-semibold">Boxing #{{ s.id }} · Moulded #{{ s.moulded_session_id }}</div>
+                      <div class="meta">Operator {{ s.operator.full_name if s.operator else '-' }}</div>
+                      <div class="meta">Started {{ s.start_time.strftime('%Y-%m-%d %H:%M') if s.start_time else '-' }} · Ended {{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</div>
+                      <div class="meta">Drying {{ s.drying_minutes or 0 }} min · Time/Box {{ s.time_per_box_min or '-' }} min</div>
+                    </div>
+                    <div class="ms-2">
+                      <a class="btn btn-primary btn-sm" href="{{ url_for('moulded_boxing.qc', boxing_session_id=s.id) }}">QC</a>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="empty-state">No moulded boxing sessions pending QC.</div>
+              {% endfor %}
+            </div>
+
+            <!-- Desktop -->
+            <div class="table-responsive d-none d-md-block">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:110px;">Boxing ID</th>
+                    <th style="width:160px;">Moulded Session</th>
+                    <th>Operator</th>
+                    <th style="width:210px;">Started</th>
+                    <th style="width:210px;">Ended</th>
+                    <th class="text-end" style="width:140px;">Drying (min)</th>
+                    <th class="text-end" style="width:150px;">Time/Box (min)</th>
+                    <th style="width:120px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in moulded_pending %}
+                  <tr>
+                    <td>#{{ s.id }}</td>
+                    <td>{{ s.moulded_session_id }}</td>
+                    <td>{{ s.operator.full_name if s.operator else '-' }}</td>
+                    <td>{{ s.start_time.strftime('%Y-%m-%d %H:%M') if s.start_time else '-' }}</td>
+                    <td>{{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</td>
+                    <td class="text-end">{{ s.drying_minutes or 0 }}</td>
+                    <td class="text-end">{{ s.time_per_box_min or '-' }}</td>
+                    <td><a class="btn btn-primary btn-sm" href="{{ url_for('moulded_boxing.qc', boxing_session_id=s.id) }}">QC Now</a></td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="8" class="empty-state">No moulded boxing sessions pending QC.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

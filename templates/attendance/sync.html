@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-sm">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <h3 class="mb-3">Sync Attendance from Device</h3>
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="row g-3 mb-2">
+          <div class="col-sm-6 col-md-4">
+            <label for="from_date" class="form-label">From</label>
+            {{ form.from_date(class="form-control", id="from_date") }}
+          </div>
+          <div class="col-sm-6 col-md-4">
+            <label for="to_date" class="form-label">To</label>
+            {{ form.to_date(class="form-control", id="to_date") }}
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-2">
+          {{ form.submit(class="btn btn-primary") }}
+          {{ form.quick_sync(class="btn btn-warning") }}
+          {{ form.sync_all(class="btn btn-outline-secondary") }}
+          <a class="btn btn-light" href="{{ url_for('attendance.dashboard') }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if recent_runs %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-body table-responsive">
+      <h5 class="mb-2">Recent Syncs</h5>
+      <table class="table table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>From</th><th>To</th><th>Started</th><th>Ended</th><th>Status</th>
+            <th class="text-end">Fetched</th><th class="text-end">Inserted</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in recent_runs %}
+          <tr>
+            <td>{{ r.from_date }}</td>
+            <td>{{ r.to_date }}</td>
+            <td>{{ r.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ r.ended_at.strftime('%Y-%m-%d %H:%M') if r.ended_at else '—' }}</td>
+            <td><span class="badge bg-{{ 'success' if r.status=='ok' else 'danger' }}">{{ r.status }}</span></td>
+            <td class="text-end">{{ r.fetched_events }}</td>
+            <td class="text-end">{{ r.inserted_events }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-muted text-center">No sync history.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

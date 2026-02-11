@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-4">
+  <h2 class="mb-4 text-center">Pre-Expansion Dashboard</h2>
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="card shadow text-center bg-primary text-white">
+        <div class="card-body">
+          <h4 class="card-title mb-2">{{ active_count }}</h4>
+          <p class="card-text mb-0">Active Sessions</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow text-center bg-success text-white">
+        <div class="card-body">
+          <h4 class="card-title mb-2">{{ completed_today }}</h4>
+          <p class="card-text mb-0">Completed Today</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow text-center bg-danger text-white">
+        <div class="card-body">
+          <h4 class="card-title mb-2">{{ overdue_count }}</h4>
+          <p class="card-text mb-0">Overdue</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow text-center bg-secondary text-white">
+        <div class="card-body">
+          <h4 class="card-title mb-2">{{ total_completed }}</h4>
+          <p class="card-text mb-0">Total Completed</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-center mt-4 flex-wrap gap-2">
+    <a href="{{ url_for('pre_expansion.start_pre_expansion_session') }}" class="btn btn-success btn-lg">Start New Session</a>
+    <a href="{{ url_for('pre_expansion.view_active_sessions') }}" class="btn btn-primary btn-lg">View Active</a>
+    <a href="{{ url_for('pre_expansion.view_pre_expansions') }}" class="btn btn-outline-secondary btn-lg">Completed Sessions</a>
+  </div>
+</div>
+{% endblock %}

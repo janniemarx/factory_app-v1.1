@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2 class="mb-3 text-center">Wire Cutting Session Detail</h2>
+  <div class="row mb-4">
+    <div class="col-md-7">
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white"><b>Session Information</b></div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item"><b>Block:</b>
+            {% if block %}Block {{ block.block_number }} ({{ block.weight }}kg, {{ block.density }}g/l){% else %}-{% endif %}
+          </li>
+          <li class="list-group-item"><b>Machine:</b> {{ machine.name if machine else '-' }}</li>
+          <li class="list-group-item"><b>Profile:</b> {{ session.profile_code }}</li>
+          <li class="list-group-item"><b>Operator:</b> {{ operator.full_name or operator.username if operator else '-' }}</li>
+          <li class="list-group-item"><b>Status:</b> {{ session.status|capitalize }}</li>
+          <li class="list-group-item"><b>Started at:</b> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</li>
+          {% if session.end_time %}
+            <li class="list-group-item"><b>Ended at:</b> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</li>
+          {% endif %}
+        </ul>
+      </div>
+      {% if production %}
+      <div class="card mb-3">
+        <div class="card-header"><b>Production Record</b></div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item"><b>Cornices Cut:</b> {{ production.profiles_cut }}</li>
+          <li class="list-group-item"><b>Total Length (m):</b> {{ production.produced_length_m }}</li>
+          <li class="list-group-item"><b>Wastage (m):</b> {{ production.wastage_m }}</li>
+          <li class="list-group-item"><b>Boxes Packed:</b> {{ production.box_count }}</li>
+          <li class="list-group-item"><b>Notes:</b> {{ production.notes or '-' }}</li>
+          <li class="list-group-item"><b>Captured by:</b> {{ production.capturer.full_name or production.capturer.username if production.capturer else '-' }}</li>
+          <li class="list-group-item"><b>Captured at:</b> {{ production.recorded_at.strftime('%Y-%m-%d %H:%M') }}</li>
+        </ul>
+      </div>
+      {% elif session.status == 'active' %}
+      <div class="alert alert-info mb-2">
+        <i class="bi bi-arrow-down"></i>
+        No production record captured yet.
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-md-5">
+      {% if session.status == 'active' %}
+      <div class="card shadow p-3 mb-3">{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-4 text-center">Wire Cutting Session Detail</h2>
+        <div class="mb-4">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item"><b>Block:</b>
+              {% if block %}Block {{ block.block_number }} ({{ block.weight }}kg, {{ block.density }}g/l){% else %}-{% endif %}
+            </li>
+            <li class="list-group-item"><b>Machine:</b> {{ machine.name if machine else '-' }}</li>
+            <li class="list-group-item"><b>Profile:</b> {{ session.profile_code }}</li>
+            <li class="list-group-item"><b>Operator:</b> {{ operator.full_name or operator.username if operator else '-' }}</li>
+            <li class="list-group-item"><b>Status:</b> {{ session.status|capitalize }}</li>
+            <li class="list-group-item"><b>Started at:</b> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</li>
+            {% if session.end_time %}
+            <li class="list-group-item"><b>Ended at:</b> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</li>
+            {% endif %}
+          </ul>
+        </div>
+
+        {% if session.status == 'active' %}
+        <form method="post" autocomplete="off">
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.profiles_cut.label(class="form-label") }}
+            {{ form.profiles_cut(class="form-control", required=True) }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label"><b>Wastage (cornices):</b></label>
+            <input type="text" class="form-control" value="{{ wastage_cornices if wastage_cornices is not none else 0 }}" readonly>
+            <div class="form-text">
+              Calculated as: <b>cornices cut - cornices per block</b>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success btn-lg w-100">
+            <i class="bi bi-check-circle"></i> Complete & Save Session
+          </button>
+        </form>
+        {% elif session.status == 'completed' %}
+        <div class="card mt-3">
+          <div class="card-body text-center">
+            <h5 class="text-success mb-3"><i class="bi bi-check-circle"></i> Session Completed</h5>
+            <p><b>Cornices Cut:</b> {{ session.profiles_cut }}</p>
+            <p>
+              <b>Wastage (cornices):</b>
+              {{ session.profiles_cut - (profile.cornices_per_block if profile else 0) }}
+            </p>
+          </div>
+        </div>
+        {% endif %}
+        <a href="{{ url_for('cutting.view_sessions') }}" class="btn btn-link w-100 mt-3">Back to Sessions</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Show wastage calculation as user types
+  document.addEventListener('DOMContentLoaded', function() {
+    const profilesCut = document.querySelector('[name="profiles_cut"]');
+    const wastageInput = document.querySelector('input[readonly]');
+    const cornicesPerBlock = {{ profile.cornices_per_block if profile else 0 }};
+    if(profilesCut && wastageInput) {
+      profilesCut.addEventListener('input', function() {
+        let value = parseInt(this.value) || 0;
+        let wastage = value - cornicesPerBlock;
+        if (wastage < 0) wastage = 0;
+        wastageInput.value = wastage;
+      });
+    }
+  });
+</script>
+{% endblock %}
+
+        <h5>Capture Production / Wastage</h5>
+        <form method="post" autocomplete="off">
+          {{ form.hidden_tag() }}
+          <div class="mb-3">{{ form.profiles_cut.label(class="form-label") }}{{ form.profiles_cut(class="form-control", min="1", required=True) }}</div>
+          <div class="mb-3">{{ form.produced_length_m.label(class="form-label") }}{{ form.produced_length_m(class="form-control", step="any") }}</div>
+          <div class="mb-3">{{ form.wastage_m.label(class="form-label") }}{{ form.wastage_m(class="form-control", step="any") }}</div>
+          <div class="mb-3">{{ form.box_count.label(class="form-label") }}{{ form.box_count(class="form-control", min="0") }}</div>
+          <div class="mb-3">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control") }}</div>
+          <button type="submit" class="btn btn-success w-100">Save & Finish Session</button>
+        </form>
+      </div>
+      {% elif session.status == 'completed' %}
+      <div class="alert alert-success">Session is completed.</div>
+      {% endif %}
+      <a href="{{ url_for('cutting.view_sessions') }}" class="btn btn-link w-100 mt-2">Back to Sessions</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

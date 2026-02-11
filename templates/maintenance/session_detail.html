@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block content %}
+{% macro badge_status(s) -%}
+  {%- set m = {
+    'open':'secondary','assigned':'info','in_progress':'primary',
+    'in_review':'warning','rework_requested':'danger','closed':'success','completed':'success'
+  } -%}
+  <span class="badge bg-{{ m.get((s or 'in_progress').lower(), 'secondary') }}">{{ (s or 'in_progress').replace('_',' ')|capitalize }}</span>
+{%- endmacro %}
+{% macro dhms(seconds) -%}
+  {%- set s = (seconds or 0)|int -%}
+  {%- set h = (s // 3600) -%}
+  {%- set m = ((s % 3600) // 60) -%}
+  {%- set ss = (s % 60) -%}
+  {{ "%02d:%02d:%02d"|format(h, m, ss) }}
+{%- endmacro %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-0">Session #{{ session.id }}</h2>
+            <div class="text-muted small">
+              Job #{{ job.id }} · {{ job.title }} · {{ badge_status(session.status) }}
+              {% if session.is_paused %}<span class="badge bg-secondary ms-1">Paused</span>{% endif %}
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('maintenance.job_detail', job_id=job.id) }}"><i class="bi bi-arrow-left"></i> Back to Job</a>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="border rounded p-3 mb-3">
+              <div class="row small">
+                <div class="col-md-4 mb-1">Technician: <span class="text-body">{{ session.technician.full_name if session.technician else '—' }}</span></div>
+                <div class="col-md-4 mb-1">Started: <span class="text-body">{{ session.started_at.strftime('%Y-%m-%d %H:%M') if session.started_at else '—' }}</span></div>
+                <div class="col-md-4 mb-1">Ended: <span class="text-body">{{ session.ended_at.strftime('%Y-%m-%d %H:%M') if session.ended_at else '—' }}</span></div>
+                <div class="col-md-4 mb-1">Total time: <span class="text-body">{{ dhms(session.total_work_seconds) }}</span></div>
+              </div>
+            </div>
+
+            <div class="border rounded p-3 mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h5 class="mb-0">Steps</h5>
+                {% if session.status == 'in_progress' %}
+                <form method="post" class="d-flex gap-2 align-items-start">
+                  {{ step_form.csrf_token }}
+                  <textarea name="{{ step_form.description.name }}" class="form-control" rows="2" placeholder="Describe what you did..." required></textarea>
+                  <button type="submit" class="btn btn-primary" name="add_step" value="1"><i class="bi bi-plus-lg"></i> Add</button>
+                </form>
+                {% endif %}
+              </div>
+
+              <div class="list-group">
+                {% for st in session.steps|sort(attribute='timestamp') %}
+                  <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                      <div>{{ st.description }}</div>
+                      <div class="small text-muted">{{ st.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+                    <div class="small text-muted">
+                      {{ st.added_by.full_name if st.added_by else '—' }}
+                    </div>
+                  </div>
+                {% else %}
+                  <div class="list-group-item text-muted">No steps logged yet.</div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="border rounded p-3">
+              <h5 class="mb-2">Segments</h5>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width:50px;">#</th>
+                      <th>Started</th>
+                      <th>Ended</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for seg in session.segments %}
+                      <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ seg.started_at.strftime('%Y-%m-%d %H:%M:%S') if seg.started_at else '—' }}</td>
+                        <td>{{ seg.ended_at.strftime('%Y-%m-%d %H:%M:%S') if seg.ended_at else '—' }}</td>
+                      </tr>
+                    {% else %}
+                      <tr><td colspan="3" class="text-muted text-center">No segments.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+          <div class="col-lg-4">
+            <div class="border rounded p-3">
+              <h5 class="mb-3">Controls</h5>
+
+              {% if session.status == 'in_progress' %}
+                <div class="d-grid gap-2">
+                  {% if not session.is_paused %}
+                    <form method="post">
+                      {{ pr_form.csrf_token }}
+                      <button type="submit" class="btn btn-outline-warning" name="pause" value="1"><i class="bi bi-pause-circle"></i> Pause</button>
+                    </form>
+                  {% else %}
+                    <form method="post">
+                      {{ pr_form.csrf_token }}
+                      <button type="submit" class="btn btn-outline-success" name="resume" value="1"><i class="bi bi-play-circle"></i> Resume</button>
+                    </form>
+                  {% endif %}
+                </div>
+
+                <hr>
+                <form method="post">
+                  {{ close_form.csrf_token }}
+                  <label class="form-label">Closing Summary</label>
+                  <textarea name="{{ close_form.closing_summary.name }}" class="form-control mb-2" rows="3" placeholder="What was done, results, remaining risks, spare parts used..."></textarea>
+                  <button type="submit" class="btn btn-primary w-100" name="complete" value="1"><i class="bi bi-check2-circle"></i> Complete Session</button>
+                </form>
+              {% else %}
+                <div class="alert alert-success">This session is completed.</div>
+                {% if session.closing_summary %}
+                  <div class="small"><span class="fw-semibold">Summary:</span> {{ session.closing_summary }}</div>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

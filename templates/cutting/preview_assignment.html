@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Add CSRF meta tag for AJAX support -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
+<div class="container mt-4">
+  <div class="card shadow p-4">
+    <h2 class="mb-4 text-center">Cutting Plan: Profile Requirements</h2>
+    <form id="assignForm">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Profile</th>
+            <th>Boxes Needed</th>
+            <th>Urgent Boxes</th>
+            <th>Cornices per Box</th>
+            <th>Cornices per Block</th>
+            <th>Total Cornices</th>
+            <th>Blocks Needed</th>
+            <th>Urgent?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for req in requirements %}
+          <tr>
+            <td>{{ req.profile_code }}</td>
+            <td>{{ req.boxes_needed }}</td>
+            <td class="{% if req.urgent %}text-danger fw-bold{% endif %}">
+              {{ req.urgent_boxes }}
+            </td>
+            <td>{{ profiles[req.profile_code].cornices_per_box }}</td>
+            <td>{{ profiles[req.profile_code].cornices_per_block }}</td>
+            <td>{{ req.total_cornices }}</td>
+            <td>{{ req.blocks_needed }}</td>
+            <td>
+              {% if req.urgent %}<span class="badge bg-danger">URGENT</span>{% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="form-check mt-3">
+        <input type="checkbox" class="form-check-input" id="allowOvertime">
+        <label class="form-check-label" for="allowOvertime">
+          Allow overtime (up to 3 blocks per machine)
+        </label>
+      </div>
+
+      <div class="d-flex gap-3 mt-4">
+        <a href="{{ url_for('cutting.upload_cut_plan') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <button type="button" class="btn btn-success" id="autoAssignBtn">
+          <i class="bi bi-gear"></i> Auto Assign to Machines
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('autoAssignBtn').onclick = function() {
+  let allowOvertime = document.getElementById('allowOvertime').checked;
+  // Gather requirements for POST
+  const requirements = [
+    {% for req in requirements %}
+      {% if req.blocks_needed > 0 %}
+        {
+          "profile_code": "{{ req.profile_code }}",
+          "boxes_needed": {{ req.boxes_needed }},
+          "urgent_boxes": {{ req.urgent_boxes }},
+          "total_cornices": {{ req.total_cornices }},
+          "blocks_needed": {{ req.blocks_needed }},
+          "urgent": {{ 'true' if req.urgent else 'false' }}
+        },
+      {% endif %}
+    {% endfor %}
+  ];
+
+  // Debug: Print requirements to browser console
+  console.log("Sending requirements:", requirements);
+
+  // Get CSRF token from meta tag
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+  fetch("{{ url_for('cutting.auto_assign') }}", {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken    // <-- CSRF header for Flask-WTF!
+    },
+    body: JSON.stringify({
+      requirements: requirements,
+      allow_overtime: allowOvertime
+    })
+  })
+  .then(async r => {
+    // Debug: Show response status and raw text
+    console.log("Status:", r.status);
+    const text = await r.text();
+    console.log("Raw response text:", text);
+    try {
+      const data = JSON.parse(text);
+      if (data.success) {
+        window.location.href = "{{ url_for('cutting.assign_profiles') }}";
+      } else {
+        alert("Assignment failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Assignment failed: Invalid server response (not JSON).\nStatus: " + r.status + "\n\n" + text);
+    }
+  });
+};
+</script>
+{% endblock %}

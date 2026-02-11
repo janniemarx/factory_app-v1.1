@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+{% macro hh(x) -%} {{ (x or 0)|round(2) }} {%- endmacro %}
+<div class="container-fluid">
+
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mt-4 mb-3">
+    <div>
+      <h2 class="mb-0">Overtime Approvals</h2>
+      <div class="text-muted small">Employees with pending overtime for your filters.</div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label">From</label>
+          <input class="form-control" type="date" name="start_date"
+                 value="{{ filter_form.start_date.data.isoformat() }}">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">To</label>
+          <input class="form-control" type="date" name="end_date"
+                 value="{{ filter_form.end_date.data.isoformat() }}">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Room</label>
+          <select class="form-select" name="room_number">
+            {% for val, label in filter_form.room_number.choices %}
+              <option value="{{ val }}" {{ 'selected' if filter_form.room_number.data==val else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-3 d-flex gap-2 align-items-center">
+          <div class="form-check mt-4 mt-md-0">
+            <input class="form-check-input" type="checkbox" id="exceptionsOnly" name="exceptions_only"
+                   {% if request.args.get('exceptions_only') in ['1','true','on','yes'] %}checked{% endif %}>
+            <label class="form-check-label" for="exceptionsOnly">Exceptions only</label>
+          </div>
+          <button class="btn btn-primary mt-4 mt-md-0" type="submit">Apply</button>
+          <a class="btn btn-light mt-4 mt-md-0" href="{{ url_for('attendance.overtime_queue') }}">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if filters_applied %}
+  <div class="card shadow-sm">
+    <div class="card-body table-responsive">
+      <table class="table align-middle">
+        <thead class="table-light">
+            <tr>
+              <th>Employee</th>
+              <th>Room</th>
+              <th class="text-end">Pending Items</th>
+              <th class="text-end">Total Hours</th>
+              <th class="text-end">Exceptions</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for g in groups %}
+            <tr class="{{ 'table-secondary' if g.exceptions_count else '' }}">
+              <td>{{ g.operator.full_name or g.operator.username }}</td>
+              <td>{{ g.operator.room_number if g.operator.room_number is not none else '—' }}</td>
+              <td class="text-end">{{ g.count }}</td>
+              <td class="text-end">{{ hh(g.total_hours) }}</td>
+              <td class="text-end">
+                {% if g.exceptions_count %}
+                  <span class="badge text-bg-danger" title="Resolve exceptions before approval">
+                    {{ g.exceptions_count }}
+                  </span>
+                {% else %}
+                  <span class="badge text-bg-success">0</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if g.exceptions_count %}
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="Please handle exceptions first">
+                      Review
+                    </button>
+              <a class="btn btn-sm btn-warning"
+                href="{{ url_for('attendance.exceptions_list',
+                           start_date=filter_form.start_date.data.isoformat(),
+                           end_date=filter_form.end_date.data.isoformat(),
+                           room_number=filter_form.room_number.data,
+                           operator_id=g.operator.id,
+                           return_to='overtime_queue',
+                           next=url_for('attendance.overtime_queue',
+                                    start_date=filter_form.start_date.data.isoformat(),
+                                    end_date=filter_form.end_date.data.isoformat(),
+                                    room_number=filter_form.room_number.data,
+                                    exceptions_only=request.args.get('exceptions_only') or None)) }}">
+                      Handle Exceptions
+                    </a>
+                  </div>
+                {% else %}
+                  <a class="btn btn-sm btn-primary"
+                     href="{{ url_for('attendance.overtime_review_employee',
+                                      operator_id=g.operator.id,
+                                      start_date=filter_form.start_date.data.isoformat(),
+                                      end_date=filter_form.end_date.data.isoformat(),
+                                      room_number=filter_form.room_number.data) }}">
+                    Review
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="text-center text-muted">Nothing pending for this filter.</td></tr>
+          {% endfor %}
+          </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center text-muted py-5">
+        Apply filters to load employees.
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

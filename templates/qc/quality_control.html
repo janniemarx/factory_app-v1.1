@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  /* ====== Modern QC Styles ====== */
+  .qc-card { border-radius: 16px; overflow: hidden; }
+  .qc-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #3aa0ff 100%);
+    color: #fff;
+    padding: 20px 18px;
+  }
+  .qc-title { font-weight: 800; letter-spacing: .3px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .4rem .7rem; border-radius: 999px;
+    background: rgba(255,255,255,.12); color: #fff; font-weight: 600; font-size: .95rem;
+  }
+  .chip .bi { opacity: .9; }
+
+  .kpi {
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 14px;
+    padding: 14px 12px;
+    background: #fff;
+    box-shadow: 0 6px 20px rgba(0,0,0,.04);
+    height: 100%;
+  }
+  .kpi .kpi-label { color: #6c757d; font-size: .85rem; margin-bottom: .2rem; }
+  .kpi .kpi-value { font-weight: 800; font-size: 1.15rem; }
+
+  /* Big good-count panel */
+  .good-panel {
+    border: 1px dashed rgba(13,110,253,.35);
+    background: rgba(13,110,253,.04);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .good-number { font-weight: 900; font-size: 2rem; line-height: 1; }
+
+  /* Inputs */
+  .form-label { font-weight: 700; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* Sticky action bar (tablet friendly) */
+  .sticky-actions {
+    position: sticky; bottom: 0; z-index: 1010;
+    background: #fff; border-top: 1px solid rgba(0,0,0,.08);
+    padding: 12px; margin: 0 -1rem -1rem -1rem;
+  }
+  .btn-fat { padding: .95rem 1rem; font-weight: 700; }
+</style>
+
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <div class="card shadow qc-card mt-4">
+
+        <!-- Header -->
+        <div class="qc-header">
+          <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+            <h2 class="qc-title mb-2 mb-md-0">
+              <i class="bi bi-clipboard2-check me-2"></i>
+              Quality Control
+            </h2>
+            <div class="d-flex flex-wrap gap-2">
+              <span class="chip"><i class="bi bi-tag"></i> Profile: {{ record.profile_code }}</span>
+              <span class="chip"><i class="bi bi-cube"></i> Block: {{ record.block_number }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-4">
+
+          <!-- KPIs -->
+          <div class="row g-3 mb-2">
+            <div class="col-6 col-md-3">
+              <div class="kpi">
+                <div class="kpi-label"><i class="bi bi-person-gear me-1"></i>Operator Cut</div>
+                <div class="kpi-value">{{ record.cornices_produced }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-5">
+              <div class="kpi">
+                <div class="kpi-label"><i class="bi bi-calendar-event me-1"></i>Cut Date</div>
+                <div class="kpi-value">
+                  {% if record.date_boxed %}
+                    {{ record.date_boxed.strftime('%Y-%m-%d %H:%M') }}
+                  {% elif record.session and record.session.end_time %}
+                    {{ record.session.end_time.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}-{% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="kpi h-100 d-flex flex-column justify-content-center">
+                <div class="kpi-label"><i class="bi bi-info-circle me-1"></i>Status</div>
+                <div class="kpi-value"><span class="badge rounded-pill text-bg-warning">Pending QC</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <form method="post" autocomplete="off" id="qcForm">
+            {{ form.hidden_tag() }}
+
+            <!-- Counts -->
+            <div class="row g-3 align-items-end mb-2">
+              <div class="col-md-4">
+                {{ form.cornices_count_operator.label(class="form-label") }}
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-person-check"></i></span>
+                  {{ form.cornices_count_operator(class="form-control", readonly=True) }}
+                </div>
+              </div>
+              <div class="col-md-4">
+                {{ form.cornices_count_qc.label(class="form-label") }}
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                  {{ form.cornices_count_qc(class="form-control", id="cornices_count_qc", required=True, min=0) }}
+                </div>
+              </div>
+              <div class="col-md-4">
+                {{ form.bad_cornices_count.label(class="form-label") }}
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-x-octagon"></i></span>
+                  {{ form.bad_cornices_count(class="form-control", id="bad_cornices_count", required=True, min=0) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Good cornices live total -->
+            <div class="good-panel mb-4 d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-uppercase text-primary fw-bold small mb-1">Good Cornices (Accepted)</div>
+                <div class="good-number text-primary" id="goodCornicesNumber">0</div>
+              </div>
+              <div class="text-end">
+                <div class="small text-muted">= QC Count − Bad</div>
+              </div>
+            </div>
+
+            <!-- Ratings -->
+            <div class="mb-3">
+              <label class="form-label"><b>Quality Ratings</b> <span class="text-muted">(1 = Bad, 10 = Excellent)</span></label>
+              <div class="row g-3">
+                <div class="col-6 col-md-4">
+                  {{ form.rated_areo_effect.label(class="form-label mb-1") }}
+                  {{ form.rated_areo_effect(class="form-select form-select-lg") }}
+                </div>
+                <div class="col-6 col-md-4">
+                  {{ form.rated_eps_binding.label(class="form-label mb-1") }}
+                  {{ form.rated_eps_binding(class="form-select form-select-lg") }}
+                </div>
+                <div class="col-6 col-md-4">
+                  {{ form.rated_wetspots.label(class="form-label mb-1") }}
+                  {{ form.rated_wetspots(class="form-select form-select-lg") }}
+                </div>
+                <div class="col-6 col-md-4">
+                  {{ form.rated_dryness.label(class="form-label mb-1") }}
+                  {{ form.rated_dryness(class="form-select form-select-lg") }}
+                </div>
+                <div class="col-6 col-md-4">
+                  {{ form.rated_lines.label(class="form-label mb-1") }}
+                  {{ form.rated_lines(class="form-select form-select-lg") }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Sticky actions -->
+            <div class="sticky-actions">
+              <button type="submit" class="btn btn-success btn-fat w-100">
+                <i class="bi bi-check-circle me-1"></i>
+                Complete QC &amp; Mark as Boxing Ready
+              </button>
+              <a href="{{ url_for('qc.pending_qc') }}" class="btn btn-link w-100 mt-2">
+                Back to Pending QC
+              </a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  function clampNonNegative(el){
+    let v = parseInt(el.value || '0', 10);
+    if (isNaN(v) || v < 0) { v = 0; el.value = v; }
+    return v;
+  }
+  function updateGoodCornices() {
+    const qcInput = document.getElementById('cornices_count_qc');
+    const badInput = document.getElementById('bad_cornices_count');
+    if (!qcInput || !badInput) return;
+
+    const qc = clampNonNegative(qcInput);
+    const bad = clampNonNegative(badInput);
+    const good = Math.max(qc - bad, 0);
+
+    const out = document.getElementById('goodCornicesNumber');
+    if (out) out.textContent = good;
+  }
+
+  const qcInput = document.getElementById('cornices_count_qc');
+  const badInput = document.getElementById('bad_cornices_count');
+  if (qcInput) qcInput.addEventListener('input', updateGoodCornices);
+  if (badInput) badInput.addEventListener('input', updateGoodCornices);
+  updateGoodCornices();
+});
+</script>
+{% endblock %}

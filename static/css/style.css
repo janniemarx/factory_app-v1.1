@@ -1,0 +1,24 @@
+<style>
+  /* Responsive aspect-ratio chart container */
+  .chart-responsive {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.6 / 1;   /* Wide landscape by default, adjust as needed */
+    min-height: 180px;
+    max-height: 360px;
+    margin-bottom: 2rem;
+  }
+  .chart-responsive canvas {
+    position: absolute;
+    width: 100% !important;
+    height: 100% !important;
+    left: 0; top: 0;
+  }
+  @media (max-width: 767px) {
+    .chart-responsive {
+      aspect-ratio: 1 / 1.1;
+      min-height: 140px;
+      max-height: 240px;
+    }
+  }
+</style>

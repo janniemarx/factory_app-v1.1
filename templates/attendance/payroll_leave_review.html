@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-sm">
+  <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+    <h3 class="mb-0">Payroll: Capture Leave</h3>
+    <a href="{{ url_for('attendance.payroll_leave_queue') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to list
+    </a>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="small text-muted">Employee</div>
+          <div class="fw-semibold">{{ (lr.operator.full_name or lr.operator.username) if lr.operator else '—' }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">Leave Type</div>
+          <div class="fw-semibold">{{ lr.leave_type|title }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">Hours per day</div>
+          <div class="fw-semibold">{{ ('%.2f' % lr.hours_per_day) if lr.hours_per_day is not none else '—' }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">From</div>
+          <div class="fw-semibold">{{ lr.start_date.strftime('%Y-%m-%d') }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">To</div>
+          <div class="fw-semibold">{{ lr.end_date.strftime('%Y-%m-%d') }}</div>
+        </div>
+        <div class="col-md-6">
+          <div class="small text-muted">Approved</div>
+          <div class="fw-semibold">
+            {% if lr.approved_at %}{{ lr.approved_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="small text-muted mb-1">Existing Notes</div>
+          <div class="border rounded p-2 bg-light" style="white-space: pre-wrap;">{{ lr.notes or '—' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" class="card shadow-sm">
+    <div class="card-body">
+      {{ form.hidden_tag() }}
+      {{ form.request_id(value=lr.id) }}
+      <div class="mb-3">
+        <label class="form-label">Payroll Notes (optional)</label>
+        {{ form.notes(class="form-control", rows="3", placeholder="Reference / batch number, etc.") }}
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary"
+           href="{{ url_for('attendance.leave_print', request_id=lr.id) }}" target="_blank">
+          <i class="bi bi-printer me-1"></i> View PDF
+        </a>
+        {{ form.submit(class="btn btn-primary") }}
+        <a class="btn btn-light" href="{{ url_for('attendance.payroll_leave_queue') }}">Cancel</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

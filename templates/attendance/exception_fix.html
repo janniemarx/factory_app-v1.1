@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% block content %}
+{# Flags (treat OUT 00:00 as effectively missing) #}
+{% set has_in   = daily and (daily.first_in  is not none) %}
+{% set has_out0 = daily and (daily.last_out is not none) %}
+{% set eff_has_out = has_out0 and (daily.last_out.strftime('%H:%M') != '00:00') %}
+
+{# Effective exception state (drives UI) #}
+{% set both_missing = (not has_in) and (not eff_has_out) %}
+{% set missing_in   = (not has_in) and eff_has_out %}
+{% set missing_out  = has_in and (not eff_has_out) %}
+
+<style>
+  .helper { font-size: .9rem; }
+  .mode-card { cursor: pointer; border-width:2px; }
+  .mode-card.active { border-color: var(--bs-primary) !important; box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .15); }
+  .quick { gap:.35rem; }
+  .quick .btn { --bs-btn-padding-y:.15rem; --bs-btn-padding-x:.5rem; --bs-btn-font-size:.8rem; }
+  .ghost { opacity:.65 }
+</style>
+
+<div class="container-sm">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0">Resolve Exception</h3>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ request.args.get('next') or
+                    url_for('attendance.exceptions_list',
+                            start_date=request.args.get('start_date', day.isoformat()),
+                            end_date=request.args.get('end_date', day.isoformat()),
+                            room_number=request.args.get('room_number')) }}">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      </div>
+
+      <!-- Context -->
+      <div class="border rounded p-3 mb-3 bg-light helper">
+        <div class="fw-semibold">{{ op.full_name or op.username }}</div>
+        <div class="text-muted">{{ day.strftime('%A %Y-%m-%d') }}</div>
+        <div class="mt-2">
+          Current: IN <strong>{{ daily.first_in.strftime('%H:%M') if has_in else '—' }}</strong>
+          / OUT <strong>{{ daily.last_out.strftime('%H:%M') if has_out0 else '—' }}</strong>
+          • Segments: <strong>{{ daily.segment_count if daily else 0 }}</strong>
+          • Worked: <strong>{{ ((daily.worked_seconds or 0)/3600.0)|round(2) if daily else 0 }} h</strong>
+        </div>
+        <div class="mt-2 small">
+          <div class="text-muted">Leave balances</div>
+          <div>Annual: <strong>{{ balances.annual_available }}</strong> available</div>
+          <div>Sick (cycle): <strong>{{ balances.sick_available_cycle }}</strong> available</div>
+          <div>Family (year): <strong>{{ balances.family_available_year }}</strong> available</div>
+        </div>
+        {% if both_missing %}
+          <div class="mt-1 text-warning">No check-in or check-out recorded. Choose <em>Assign Leave</em> (most common) or <em>Adjust Attendance</em>.</div>
+        {% elif missing_in %}
+          <div class="mt-1 text-warning">Missing check-in. Most likely the operator forgot to clock in.</div>
+        {% elif missing_out %}
+          <div class="mt-1 text-warning">Missing check-out. Most likely the operator forgot to clock out.</div>
+        {% endif %}
+      </div>
+
+      <form method="post" id="exception-form"
+            data-suggest-in="07:00" data-suggest-out="16:00"
+            data-has-in="{{ '1' if has_in else '0' }}"
+            data-has-out="{{ '1' if eff_has_out else '0' }}">
+        {{ form.hidden_tag() }}
+        {{ form.operator_id() }}
+        {{ form.day() }}
+        
+        <!-- Hidden fields for context preservation -->
+        <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
+        <input type="hidden" name="start_date" value="{{ request.args.get('start_date', '') }}">
+        <input type="hidden" name="end_date" value="{{ request.args.get('end_date', '') }}">
+        <input type="hidden" name="room_number" value="{{ request.args.get('room_number', '') }}">
+  <input type="hidden" name="exceptions_only" value="{{ request.args.get('exceptions_only', '') }}">
+
+        <!-- Mode chooser -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="w-100">
+              <input type="radio" name="mode" value="leave" class="d-none" id="modeLeave">
+              <div class="card mode-card h-100 p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-umbrella me-2"></i>
+                  <div>
+                    <div class="fw-semibold">Assign Leave</div>
+                    <div class="text-muted small">
+                      Records <strong>8h/day</strong> by default (<strong>0h/day</strong> for Unpaid).
+                      You can also set a date <strong>From / To</strong> range here.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+          </div>
+          <div class="col-md-6">
+            <label class="w-100">
+              <input type="radio" name="mode" value="adjust" class="d-none" id="modeAdjust">
+              <div class="card mode-card h-100 p-3">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-fingerprint me-2"></i>
+                  <div>
+                    <div class="fw-semibold">Adjust Attendance</div>
+                    <div class="text-muted small">Add the missing clock(s); totals are recomputed automatically.</div>
+                  </div>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Leave panel -->
+        <div id="panelLeave" class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Leave type</label>
+              {{ form.leave_type(class="form-select", id="leaveType") }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Hours per day</label>
+              <div class="form-text" id="leaveHoursHint"><strong>8h/day</strong> (Unpaid = <strong>0h/day</strong>).</div>
+            </div>
+          </div>
+
+          <div class="row g-3 mt-0">
+            <div class="col-md-6">
+              <label class="form-label">From</label>
+              {# Support both: real WTForms fields or raw HTML inputs #}
+              {% if form.leave_from is defined %}
+                {{ form.leave_from(class="form-control", id="leaveFrom") }}
+              {% else %}
+                <input type="date"
+                       class="form-control"
+                       id="leaveFrom"
+                       name="leave_from"
+                       value="{{ request.args.get('leave_from', day.isoformat()) }}">
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">To</label>
+              {% if form.leave_to is defined %}
+                {{ form.leave_to(class="form-control", id="leaveTo") }}
+              {% else %}
+                <input type="date"
+                       class="form-control"
+                       id="leaveTo"
+                       name="leave_to"
+                       value="{{ request.args.get('leave_to', request.args.get('leave_from', day.isoformat())) }}">
+              {% endif %}
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex flex-wrap quick">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-range="today">Today</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-range="yesterday-today">Yesterday → Today</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-range="thisweek">This Workweek (Mon–Fri)</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-range="clear">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Adjust panel -->
+        <div id="panelAdjust" class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-6" id="groupIn">
+              <label class="form-label">Add Check-In</label>
+              {{ form.add_in(class="form-control", id="addIn", value='' if has_in else '07:00') }}
+              <div class="d-flex quick mt-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="in" data-time="07:00">07:00</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="in" data-time="06:00">06:00</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="in" data-suggest>Suggested</button>
+              </div>
+            </div>
+            <div class="col-md-6" id="groupOut">
+              <label class="form-label">Add Check-Out</label>
+              {{ form.add_out(class="form-control", id="addOut", value='' if eff_has_out else '16:00') }}
+              <div class="d-flex quick mt-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="out" data-time="16:00">16:00</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="out" data-time="16:30">16:30</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-fill="out" data-suggest>Suggested</button>
+              </div>
+            </div>
+          </div>
+          <div class="text-muted small mt-2">Tip: use the quick buttons above for common times.</div>
+        </div>
+
+        <!-- Reason -->
+        <div class="mt-3">
+          <label class="form-label">Reason (required)</label>
+          {{ form.reason(class="form-control", rows="3", id="reason") }}
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 mt-3">
+          {{ form.submit(class="btn btn-primary", id="btnApply") }}
+          <a class="btn btn-light"
+             href="{{ request.args.get('next') or
+                      url_for('attendance.exceptions_list',
+                              start_date=request.args.get('start_date', day.isoformat()),
+                              end_date=request.args.get('end_date', day.isoformat()),
+                              room_number=request.args.get('room_number')) }}">Cancel</a>
+        </div>
+
+
+        <div class="form-check mt-2">
+          {{ form.no_night(class="form-check-input", id="no-night") }}
+          <label class="form-check-label" for="no-night">
+            No night shift for this date
+          </label>
+          <div class="form-text">Marks the date as “No night shift” for weekly balancing; proposals will be refreshed.</div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('exception-form');
+
+  // Elements
+  const modeLeave   = document.getElementById('modeLeave');
+  const modeAdjust  = document.getElementById('modeAdjust');
+  const panelLeave  = document.getElementById('panelLeave');
+  const panelAdjust = document.getElementById('panelAdjust');
+  const leaveType   = document.getElementById('leaveType');
+  const leaveHours  = document.getElementById('leaveHours');
+  const leaveHint   = document.getElementById('leaveHoursHint');
+  const leaveFrom   = document.getElementById('leaveFrom');
+  const leaveTo     = document.getElementById('leaveTo');
+
+  const addIn    = document.getElementById('addIn');
+  const addOut   = document.getElementById('addOut');
+  const groupIn  = document.getElementById('groupIn');
+  const groupOut = document.getElementById('groupOut');
+  const modeCards = document.querySelectorAll('.mode-card');
+
+  // Reliable flags from server (OUT 00:00 counts as "no OUT")
+  const hasIn  = form.dataset.hasIn  === '1';
+  const hasOut = form.dataset.hasOut === '1';
+  const bothMissing = !hasIn && !hasOut;
+
+  const suggestIn  = form.dataset.suggestIn  || '07:00';
+  const suggestOut = form.dataset.suggestOut || '16:00';
+
+  function setMode(m) {
+    const leave = (m === 'leave');
+    modeLeave.checked = leave;
+    modeAdjust.checked = !leave;
+    panelLeave.style.display  = leave ? '' : 'none';
+    panelAdjust.style.display = leave ? 'none' : '';
+
+    // required state for leave type
+    if (leave) leaveType.setAttribute('required', 'required');
+    else       leaveType.removeAttribute('required');
+
+    // toggle card visuals
+    modeCards[0].classList.toggle('active', leave);
+    modeCards[1].classList.toggle('active', !leave);
+
+    // enable/disable relevant inputs
+    applyFieldEnabling();
+  }
+
+  function disableQuickButtonsFor(container, disabled) {
+    if (!container) return;
+    container.querySelectorAll('.quick .btn').forEach(b => b.disabled = disabled);
+  }
+
+  // Enable/disable inputs & quick buttons per exact rules
+  function applyFieldEnabling() {
+    const usingLeave = modeLeave.checked;
+
+    // Leave panel: enable range inputs & hours; disable time edits
+    if (usingLeave) {
+      if (leaveFrom) leaveFrom.disabled = false;
+      if (leaveTo)   leaveTo.disabled   = false;
+      if (leaveHours) leaveHours.disabled = false;
+
+      addIn.disabled = true;
+      addOut.disabled = true;
+      disableQuickButtonsFor(groupIn, true);
+      disableQuickButtonsFor(groupOut, true);
+      groupIn.classList.remove('ghost');
+      groupOut.classList.remove('ghost');
+      return;
+    }
+
+    // Adjust mode:
+    //  - hasIn && !hasOut → allow OUT only
+    //  - !hasIn && hasOut → allow IN only
+    //  - !hasIn && !hasOut → allow both
+    //  - else (both present) → allow both
+    let allowIn, allowOut;
+    if (hasIn && !hasOut)       { allowIn = false; allowOut = true;  }
+    else if (!hasIn && hasOut)  { allowIn = true;  allowOut = false; }
+    else if (!hasIn && !hasOut) { allowIn = true;  allowOut = true;  }
+    else                        { allowIn = true;  allowOut = true;  }
+
+    addIn.disabled  = !allowIn;
+    addOut.disabled = !allowOut;
+    disableQuickButtonsFor(groupIn, !allowIn);
+    disableQuickButtonsFor(groupOut, !allowOut);
+    groupIn.classList.toggle('ghost', !allowIn);
+    groupOut.classList.toggle('ghost', !allowOut);
+
+    // In adjust mode, keep leave controls inert to avoid accidental submission
+    if (leaveFrom) leaveFrom.disabled = true;
+    if (leaveTo)   leaveTo.disabled   = true;
+    if (leaveHours) leaveHours.disabled = true;
+  }
+
+  // Default mode: Leave when both are missing; otherwise Adjust
+  setMode(bothMissing ? 'leave' : 'adjust');
+
+  // Radios & card clicks
+  modeLeave.addEventListener('change', () => { if (modeLeave.checked)  setMode('leave'); });
+  modeAdjust.addEventListener('change', () => { if (modeAdjust.checked) setMode('adjust'); });
+  modeCards[0].parentElement.addEventListener('click', () => setMode('leave'));
+  modeCards[1].parentElement.addEventListener('click', () => setMode('adjust'));
+
+  // Quick-fill time buttons (respect disabled state)
+  document.querySelectorAll('[data-fill]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-fill');
+      const t = btn.getAttribute('data-time') ||
+                (btn.hasAttribute('data-suggest') ? (target === 'in' ? suggestIn : suggestOut) : '');
+      if (!t) return;
+      if (target === 'in') {
+        if (addIn.disabled) return;
+        addIn.value = t;
+      } else {
+        if (addOut.disabled) return;
+        addOut.value = t;
+      }
+    });
+  });
+
+  // Leave range quick buttons
+  function iso(d){ return d.toISOString().slice(0,10); }
+  function mondayOf(d){ const x=new Date(d); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); return x; }
+  document.querySelectorAll('[data-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!leaveFrom || !leaveTo) return;
+      const today = new Date();
+      const todayISO = iso(today);
+      const y = new Date(); y.setDate(y.getDate()-1);
+      if (btn.dataset.range === 'today') {
+        leaveFrom.value = todayISO; leaveTo.value = todayISO;
+      } else if (btn.dataset.range === 'yesterday-today') {
+        leaveFrom.value = iso(y); leaveTo.value = todayISO;
+      } else if (btn.dataset.range === 'thisweek') {
+        const mon = mondayOf(today);
+        const fri = new Date(mon); fri.setDate(mon.getDate()+4);
+        leaveFrom.value = iso(mon); leaveTo.value = iso(fri);
+      } else if (btn.dataset.range === 'clear') {
+        leaveFrom.value = ''; leaveTo.value = '';
+      }
+    });
+  });
+
+  // Leave hints (auto hours)
+  function updateLeaveHint() {
+    if (!leaveHint) return;
+    const v = (leaveType.value || '').toLowerCase();
+    const explicit = (leaveHours && leaveHours.value.trim() !== '');
+    if (explicit) {
+      leaveHint.textContent = 'Using your entered hours per day.';
+      return;
+    }
+    leaveHint.innerHTML = (v === 'unpaid')
+      ? 'Auto if blank: <strong>0h/day</strong> (Unpaid leave).'
+      : 'Auto if blank: <strong>8h/day</strong>.';
+  }
+  if (leaveType) leaveType.addEventListener('change', updateLeaveHint);
+  if (leaveHours) leaveHours.addEventListener('input', updateLeaveHint);
+  updateLeaveHint();
+
+  // Submit guard & normalization
+  form.addEventListener('submit', (e) => {
+    const usingLeave = modeLeave.checked;
+
+    if (usingLeave) {
+      if (!leaveType || !leaveType.value) {
+        e.preventDefault();
+        if (leaveType) leaveType.focus();
+        return;
+      }
+
+      // Validate range when shown
+      if (leaveFrom && leaveTo) {
+        const a = leaveFrom.value, b = leaveTo.value;
+        if (!a || !b) {
+          e.preventDefault();
+          (a ? leaveTo : leaveFrom).focus();
+          alert('Please select both From and To dates for the leave range.');
+          return;
+        }
+        if (b < a) {
+          // swap silently to be forgiving
+          const tmp = leaveFrom.value;
+          leaveFrom.value = leaveTo.value;
+          leaveTo.value = tmp;
+        }
+      }
+
+      // Clear punch fields on leave path
+      if (addIn)  addIn.value = '';
+      if (addOut) addOut.value = '';
+      return;
+    }
+
+    // Adjust path – only allowed side(s)
+    const allowIn  = !addIn.disabled;
+    const allowOut = !addOut.disabled;
+
+    if (!allowIn)  addIn.value = '';
+    if (!allowOut) addOut.value = '';
+
+    const hasAllowedValue = (allowIn && addIn.value) || (allowOut && addOut.value);
+    if (!hasAllowedValue) {
+      e.preventDefault();
+      if (allowIn) addIn.focus();
+      else if (allowOut) addOut.focus();
+      alert('Please add a time for the missing clock.');
+      return;
+    }
+
+    // Clear leave inputs on adjust path to avoid accidental processing
+    if (leaveType) leaveType.value = '';
+    if (leaveFrom) leaveFrom.value = '';
+    if (leaveTo)   leaveTo.value = '';
+    if (leaveHours) leaveHours.value = '';
+  });
+
+  // Apply initial enable/disable states after DOM ready
+  applyFieldEnabling();
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Sessions Not Yet Captured to Pastel</h2>
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>Batch Number</th>
+      <th>Operator</th>
+      <th>Started</th>
+      <th>Ended</th>
+      <th>Purpose</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in sessions %}
+    <tr>
+      <td>
+        <a href="{{ url_for('pre_expansion.pastel_capture', pre_exp_id=s.id) }}">
+          {{ s.batch_no }}
+        </a>
+      </td>
+      <td>{{ s.operator.full_name or s.operator.username if s.operator else "-" }}</td>
+      <td>{{ s.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</td>
+      <td>{{ s.purpose }}</td>
+      <td>
+        <a href="{{ url_for('pre_expansion.pastel_capture', pre_exp_id=s.id) }}" class="btn btn-info btn-sm">
+          Capture
+        </a>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="6" class="text-center text-muted">All sessions captured.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

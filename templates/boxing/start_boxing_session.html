@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-3 text-center">Start Boxing Session</h2>
+        <div class="alert alert-warning text-center fw-bold mb-4">
+          Before boxing, <b>ZERO the machine cycle counter</b> on your machine.
+        </div>
+        <form method="post" autocomplete="off">
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.source.label(class="form-label") }}
+            {{ form.source(class="form-select", required=True) }}
+          </div>
+          <button type="submit" class="btn btn-success btn-lg w-100">
+            <i class="bi bi-play-circle"></i> Start Boxing
+          </button>
+        </form>
+        <a href="{{ url_for('boxing.view_sessions') }}" class="btn btn-link w-100 mt-3">Back to Sessions</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{# templates/qc/pr16_quality_control.html #}
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-md-9">
+    <div class="card shadow p-4">
+      <h3 class="mb-3">PR16 QC — Block <span class="text-primary">{{ session.block.block_number if session.block else session.block_id }}</span></h3>
+      <div class="text-muted mb-2">Cut: <b>{{ rec.cornices_produced or 0 }}</b> · Wrapped: <b>{{ session.wrapped_cornices or 0 }}</b> · Trimmed: <b>{{ session.trimmed_cornices or 0 }}</b></div>
+      <form method="post">
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.cornices_count_operator.label(class="form-label") }}
+          {{ form.cornices_count_operator(class="form-control", readonly=True) }}
+        </div>
+
+        <div class="mb-3">
+          {{ form.cornices_count_qc.label(class="form-label") }}
+          {{ form.cornices_count_qc(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+          {{ form.bad_cornices_count.label(class="form-label") }}
+          {{ form.bad_cornices_count(class="form-control") }}
+          <div class="form-text">Bad ≤ QC count; good will be QC − bad.</div>
+        </div>
+
+
+        <div class="mb-3">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control", rows="3") }}</div>
+
+        <button class="btn btn-primary w-100">{{ form.submit.label.text }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

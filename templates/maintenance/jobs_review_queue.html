@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+{% macro dhms(seconds) -%}
+  {%- set s = (seconds or 0)|int -%}
+  {%- set h = (s // 3600) -%}
+  {%- set m = ((s % 3600) // 60) -%}
+  {%- set ss = (s % 60) -%}
+  {{ "%02d:%02d:%02d"|format(h, m, ss) }}
+{%- endmacro %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-0">Jobs Awaiting Review</h2>
+            <div class="text-muted small">Approve or request rework.</div>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('maintenance.jobs_list', status='in_review') }}">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </a>
+        </div>
+
+        <!-- Mobile -->
+        <div class="d-md-none">
+          <div class="list-group">
+            {% for j in jobs %}
+              <a class="list-group-item list-group-item-action" href="{{ url_for('maintenance.job_review', job_id=j.id) }}">
+                <div class="fw-semibold">#{{ j.id }} · {{ j.title }}</div>
+                <div class="small text-muted">
+                  Technician: {{ j.assigned_to.full_name if j.assigned_to else '—' }}
+                  · Time: {{ dhms(j.total_work_seconds) }}
+                </div>
+              </a>
+            {% else %}
+              <div class="list-group-item text-center text-muted">No jobs in review.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Desktop -->
+        <div class="table-responsive d-none d-md-block">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:90px;">ID</th>
+                <th>Title</th>
+                <th>Technician</th>
+                <th class="text-end" style="width:140px;">Total Time</th>
+                <th style="width:210px;">Created</th>
+                <th style="width:120px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for j in jobs %}
+              <tr>
+                <td>#{{ j.id }}</td>
+                <td>{{ j.title }}</td>
+                <td>{{ j.assigned_to.full_name if j.assigned_to else '—' }}</td>
+                <td class="text-end">{{ dhms(j.total_work_seconds) }}</td>
+                <td>{{ j.created_at.strftime('%Y-%m-%d %H:%M') if j.created_at else '-' }}</td>
+                <td><a class="btn btn-sm btn-primary" href="{{ url_for('maintenance.job_review', job_id=j.id) }}">Review</a></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted">No jobs in review.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

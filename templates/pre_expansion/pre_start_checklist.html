@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card shadow p-4">
+      <h2 class="mb-4 text-center">Pre-Expansion Start Checklist</h2>
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.completed_by.label }}
+          {{ form.completed_by(class="form-control form-control-lg") }}
+        </div>
+        <ul class="list-group mb-4">
+          <li class="list-group-item">{{ form.check1() }} {{ form.check1.label.text }}</li>
+          <li class="list-group-item">{{ form.check2() }} {{ form.check2.label.text }}</li>
+          <li class="list-group-item">{{ form.check3() }} {{ form.check3.label.text }}</li>
+          <li class="list-group-item">{{ form.check4() }} {{ form.check4.label.text }}</li>
+          <li class="list-group-item">{{ form.check5() }} {{ form.check5.label.text }}</li>
+          <li class="list-group-item">{{ form.check6() }} {{ form.check6.label.text }}</li>
+          <li class="list-group-item">{{ form.check7() }} {{ form.check7.label.text }}</li>
+          <li class="list-group-item">{{ form.check8() }} {{ form.check8.label.text }}</li>
+          <li class="list-group-item">{{ form.check9() }} {{ form.check9.label.text }}</li>
+          <li class="list-group-item">{{ form.check10() }} {{ form.check10.label.text }}</li>
+          <li class="list-group-item">{{ form.check11() }} {{ form.check11.label.text }}</li>
+          <li class="list-group-item">{{ form.check12() }} {{ form.check12.label.text }}</li>
+          <li class="list-group-item">{{ form.check13() }} {{ form.check13.label.text }}</li>
+        </ul>
+        <button type="submit" class="btn btn-primary btn-lg w-100">{{ form.submit.label }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

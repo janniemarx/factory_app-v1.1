@@ -1,0 +1,15 @@
+flask
+flask_sqlalchemy
+flask_wtf
+wtforms
+flask-login
+Flask-Migrate
+pandas
+openpyxl
+xlsxwriter
+requests
+python-dateutil
+pypdf
+reportlab
+waitress
+pytest

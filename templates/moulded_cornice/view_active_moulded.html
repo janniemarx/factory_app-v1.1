@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Active Moulded Cornice Sessions</h2>
+      <a href="{{ url_for('moulded_cornice.start_session') }}" class="btn btn-success btn-lg">
+        <i class="bi bi-plus-circle"></i> New Moulded Session
+      </a>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Session ID</th>
+            <th>Batch</th>
+            <th>Density</th>
+            <th>Machine</th>
+            <th>Mould</th>
+            <th>Operator</th>
+            <th>Started</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sessions %}
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>
+              {% if s.pre_expansion %}
+                <a href="{{ url_for('pre_expansion.view_pre_expansion_detail', pre_expansion_id=s.pre_expansion.id) }}">
+                  {{ s.pre_expansion.batch_no }}
+                </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>{% if s.pre_expansion %}{{ s.pre_expansion.density }}{% else %}-{% endif %}</td>
+            <td>{% if s.machine %}{{ s.machine.name }}{% else %}-{% endif %}</td>
+            <td>{{ s.mould_number }}</td>
+            <td>{{ s.operator.full_name or s.operator.username if s.operator else '-' }}</td>
+            <td>{% if s.start_time %}{{ s.start_time.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}</td>
+            <td>
+              {% if s.status == 'setup' %}
+                <span class="badge bg-info text-dark">Setup</span>
+              {% elif s.status == 'active' %}
+                <span class="badge bg-warning text-dark">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ s.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('moulded_cornice.session_detail', session_id=s.id) }}" class="btn btn-outline-primary btn-sm">View</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted">No active moulded cornice sessions.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

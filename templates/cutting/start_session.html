@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="card shadow rounded-4 p-4 mt-5 border-0">
+        <div class="text-center mb-4">
+          <h2 class="fw-bold mb-1">Start Wire Cutting Session</h2>
+          <p class="text-muted mb-0 fs-6">Begin a new cutting operation below.</p>
+        </div>
+        <form method="post" id="startWireCuttingForm" autocomplete="off">
+          {{ form.hidden_tag() }}
+
+          <div class="mb-3">
+            {{ form.machine_id.label(class="form-label fw-semibold") }}
+            {{ form.machine_id(class="form-select rounded-3", id="machine_id", required=True) }}
+          </div>
+          <div class="mb-3">
+            {{ form.profile_code.label(class="form-label fw-semibold") }}
+            <select class="form-select rounded-3" id="profile_code" name="profile_code" required>
+              <option value="">Select profile...</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold"><b>Block Number</b></label>
+            <input type="text" id="block_number_display" class="form-control rounded-3" readonly>
+            <input type="hidden" id="block_id" name="block_id">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg rounded-3 w-100 mt-2">
+            <i class="bi bi-play-circle"></i> Start Cutting Session
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getCsrfToken() {
+  return document.getElementById('csrf_token').value;
+}
+
+document.getElementById('machine_id').addEventListener('change', function() {
+  let machineId = this.value;
+  fetch('/cutting/get_profiles_for_machine', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
+    },
+    body: JSON.stringify({machine_id: machineId})
+  })
+  .then(r => r.json()).then(data => {
+    let profileSel = document.getElementById('profile_code');
+    profileSel.innerHTML = '<option value="">Select profile...</option>';
+    data.profiles.forEach(p => {
+      profileSel.innerHTML += `<option value="${p.code}">${p.label}</option>`;
+    });
+    // Reset block info
+    document.getElementById('block_number_display').value = "";
+    document.getElementById('block_id').value = "";
+  });
+});
+
+document.getElementById('profile_code').addEventListener('change', function() {
+  let profile = this.value;
+  fetch('/cutting/get_oldest_block_for_profile', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
+    },
+    body: JSON.stringify({profile_code: profile})
+  }).then(r => r.json()).then(data => {
+    if (data.block_number) {
+      document.getElementById('block_number_display').value = data.block_number;
+      document.getElementById('block_id').value = data.block_id;
+    } else {
+      document.getElementById('block_number_display').value = "No suitable block available";
+      document.getElementById('block_id').value = "";
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-xl-9 col-lg-10">
+    <div class="card shadow p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="mb-0">Extrusion Profiles</h2>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-primary" href="{{ url_for('extrusion.profile_new') }}">
+            <i class="bi bi-plus-circle"></i> Add Profile
+          </a>
+          <a href="{{ url_for('extrusion.sessions_list') }}" class="btn btn-link">← Sessions</a>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:90px;">ID</th>
+              <th>Code</th>
+              <th>Length</th>
+              <th>Pieces/Box</th>
+              <th style="width:260px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in profiles %}
+            <tr>
+              <td class="fw-bold">#{{ p.id }}</td>
+              <td>{{ p.code }}</td>
+              <td>{{ p.length_m }} m</td>
+              <td>{{ p.pieces_per_box }}</td>
+              <td class="d-flex gap-2">
+                <a class="btn btn-outline-primary btn-sm" href="{{ url_for('extrusion.profile_settings_manage', profile_id=p.id) }}">
+                  Manage Settings
+                </a>
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('extrusion.profile_edit', profile_id=p.id) }}">
+                  Edit Profile
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No profiles defined.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

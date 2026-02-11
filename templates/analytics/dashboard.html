@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-3">
+  <h1 class="mb-3">EPS Factory Analytics Dashboard</h1>
+  <div class="row mb-4">
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Pre-Expansions Today</b><br>{{ quick_stats.pre_exp_today }}</div></div>
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Block Sessions Today</b><br>{{ quick_stats.block_sessions_today }}</div></div>
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Unused Pre-Exp Batches</b><br>{{ quick_stats.unused_pre_exp }}</div></div>
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Total Blocks</b><br>{{ quick_stats.total_blocks }}</div></div>
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Blocks Waiting to Cut</b><br>{{ quick_stats.blocks_waiting_to_cut }}</div></div>
+    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Avg Curing Time (hr)</b><br>{{ quick_stats.avg_curing_time if quick_stats.avg_curing_time else '-' }}</div></div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-7">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white"><b>Unutilized Pre-Expansions</b></div>
+        <div class="card-body p-0">
+          <table class="table table-striped m-0">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Density</th>
+                <th>Planned Kg</th>
+                <th>Ended</th>
+                <th>Curing Days</th>
+                <th>Status</th>
+                <th>Blocks Made</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pe in unused_batches %}
+                <tr class="{% if pe.curing_status == 'Overdue' %}table-danger{% elif pe.curing_status == 'Ready' %}table-warning{% endif %}">
+                  <td>{{ pe.batch_no }}</td>
+                  <td>{{ pe.density }}</td>
+                  <td>{{ pe.planned_kg }}</td>
+                  <td>{{ pe.end_time.strftime("%Y-%m-%d") if pe.end_time else '-' }}</td>
+                  <td>{{ pe.curing_days }}</td>
+                  <td><b>{{ pe.curing_status }}</b></td>
+                  <td>{{ pe.blocks }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="7" class="text-center text-muted">All pre-expansions have been used or none exist.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white"><b>Blocks Not Yet Cut</b></div>
+        <div class="card-body p-0">
+          <table class="table table-sm m-0">
+            <thead>
+              <tr>
+                <th>Block No</th>
+                <th>Batch</th>
+                <th>Density</th>
+                <th>Created</th>
+                <th>Curing Days</th>
+                <th>Curing End</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in blocks_not_cut %}
+                <tr>
+                  <td>{{ b.block_number }}</td>
+                  <td>{{ b.pre_expansion_batch }}</td>
+                  <td>{{ b.density }}</td>
+                  <td>{{ b.created_at.strftime("%Y-%m-%d") if b.created_at else '-' }}</td>
+                  <td>{{ b.curing_days }}</td>
+                  <td>{{ b.curing_end.strftime("%Y-%m-%d") if b.curing_end else '-' }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="text-center text-muted">No blocks are waiting to be cut.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white"><b>Block Production (Summary)</b></div>
+        <div class="card-body">
+          <b>Today:</b> {{ stats_today.total_blocks }} blocks, {{ stats_today.total_weight }} kg, avg {{ stats_today.avg_weight }} kg<br>
+          <b>This Week:</b> {{ stats_week.total_blocks }} blocks, {{ stats_week.total_weight }} kg, avg {{ stats_week.avg_weight }} kg<br>
+          <b>This Month:</b> {{ stats_month.total_blocks }} blocks, {{ stats_month.total_weight }} kg, avg {{ stats_month.avg_weight }} kg<br>
+          <b>Heaviest block today:</b> {{ stats_today.heaviest if stats_today.heaviest else '-' }}<br>
+          <b>Lightest block today:</b> {{ stats_today.lightest if stats_today.lightest else '-' }}
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark"><b>Top 5 Batches (Most Blocks)</b></div>
+        <div class="card-body p-0">
+          <table class="table table-sm m-0">
+            <thead>
+              <tr><th>Batch No</th><th># Blocks</th></tr>
+            </thead>
+            <tbody>
+              {% for batch in top_batches %}
+                <tr>
+                  <td>{{ batch.batch_no }}</td>
+                  <td>{{ batch.block_count }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="2" class="text-center text-muted">No data.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-danger text-white"><b>Inactive Block Sessions (&gt;2h no activity)</b></div>
+        <div class="card-body p-0">
+          <table class="table table-sm m-0">
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Batch</th>
+                <th>Operator</th>
+                <th>Started</th>
+                <th>Last Block</th>
+                <th>Idle (h)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in inactive_sessions %}
+                <tr>
+                  <td>{{ s.session_id }}</td>
+                  <td>{{ s.pre_expansion_batch }}</td>
+                  <td>{{ s.operator }}</td>
+                  <td>{{ s.started_at.strftime("%Y-%m-%d %H:%M") if s.started_at else '-' }}</td>
+                  <td>{{ s.last_block_time.strftime("%Y-%m-%d %H:%M") if s.last_block_time else '-' }}</td>
+                  <td><b>{{ s.idle_hours }}</b></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="text-center text-muted">No inactive sessions.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white"><b>Pre-Expansion Usage (Per Batch)</b></div>
+        <div class="card-body p-0">
+          <table class="table table-sm m-0">
+            <thead>
+              <tr>
+                <th>Batch No</th>
+                <th>Density</th>
+                <th>Planned KG</th>
+                <th>Blocks Made</th>
+                <th>Session Start</th>
+                <th>First Block (hr after end)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for usage in pre_exp_usage %}
+                <tr>
+                  <td>{{ usage.batch_no }}</td>
+                  <td>{{ usage.density }}</td>
+                  <td>{{ usage.planned_kg }}</td>
+                  <td>{{ usage.block_count }}</td>
+                  <td>{{ usage.session_started.strftime("%Y-%m-%d %H:%M") if usage.session_started else '-' }}</td>
+                  <td>{{ usage.time_to_first_block_hr if usage.time_to_first_block_hr else '-' }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="text-center text-muted">No batches found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

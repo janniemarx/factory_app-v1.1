@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow p-4 mb-4">
+    <h2>Block Detail: {{ block.block_number }}</h2>
+    <ul class="list-group mb-3">
+      <li class="list-group-item"><b>Block Number:</b> {{ block.block_number }}</li>
+      <li class="list-group-item"><b>Weight:</b> {{ block.weight }} kg</li>
+      <li class="list-group-item"><b>Heating 1:</b> {{ block.heating1_time }} sec</li>
+      <li class="list-group-item"><b>Heating 2:</b> {{ block.heating2_time }} sec</li>
+      <li class="list-group-item"><b>Heating 3:</b> {{ block.heating3_time }} sec</li>
+      <li class="list-group-item"><b>Cooling:</b> {{ block.cooling_time }} sec</li>
+      <li class="list-group-item">
+        <b>Pre-Expansion Batch:</b>
+        {% if pre_exp %}
+          <a href="{{ url_for('pre_expansion.view_pre_expansion_detail', pre_expansion_id=pre_exp.id) }}">
+            {{ pre_exp.batch_no }}
+          </a>
+        {% else %}
+          -
+        {% endif %}
+      </li>
+      <li class="list-group-item"><b>Density:</b> {{ pre_exp.density if pre_exp else '-' }}</li>
+    </ul>
+
+    <a href="{{ url_for('blocks.completed_sessions') }}" class="btn btn-link mt-3">Back to Blocks</a>
+  </div>
+
+  <!-- PROFILE CUTTING ANALYTICS SECTION -->
+  <div class="card shadow p-4 mb-4">
+    <h4>Cornices Produced per Profile from this Block</h4>
+    {% if profile_stats and profile_stats|length %}
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Profile</th>
+              <th>Total Cornices Produced</th>
+              <th>Damaged</th>
+              <th>QC: Aero</th>
+              <th>QC: EPS Binding</th>
+              <th>QC: Wetspots</th>
+              <th>QC: Dryness</th>
+              <th>QC: Lines</th>
+              <th>Block → Boxed<br>(min)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for stat in profile_stats %}
+            <tr>
+              <td>{{ stat.profile_code }}</td>
+              <td>{{ stat.cornices_produced }}</td>
+              <td>{{ stat.damaged }}</td>
+              <td>{{ stat.rated_areo_effect }}</td>
+              <td>{{ stat.rated_eps_binding }}</td>
+              <td>{{ stat.rated_wetspots }}</td>
+              <td>{{ stat.rated_dryness }}</td>
+              <td>{{ stat.rated_lines }}</td>
+              <td>
+                {% if stat.time_min is not none %}
+                  {{ stat.time_min }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info text-center">
+        No profiles have been cut from this block yet.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

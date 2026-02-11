@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .metric { border-radius: .75rem; padding: 1rem; background: #f8fafc; box-shadow: 0 1px 8px rgba(0,0,0,.05); }
+  .metric .label { color:#6b7280; font-size:.9rem; }
+  .metric .value { font-size:1.4rem; font-weight:700; }
+  .chip { background:#eef2ff; border-radius:.6rem; padding:.1rem .5rem; }
+</style>
+
+<div class="container py-4">
+  <h3 class="mb-3">Moulded Boxing — Session #{{ session.id }}</h3>
+
+  <!-- Header Cards -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="metric">
+        <div class="label">Target Cornices (All Profiles)</div>
+        <div class="value">{{ totals.target }}</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="metric">
+        <div class="label">Boxed So Far</div>
+        <div class="value text-success">{{ totals.boxed }}</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="metric">
+        <div class="label">Remaining</div>
+        <div class="value text-primary">{{ totals.remaining }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info mb-3">
+    <b>Tip:</b> This table <b>auto-merges duplicate profiles</b> (e.g., 2× M02 lines become one row).
+    Use <b>Save</b> to record each finished line; rows disappear when remaining reaches 0.
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Profile</th>
+          <th class="text-center">Cornices/Box</th>
+          <th class="text-center">Target</th>
+          <th class="text-center">Boxed</th>
+          <th class="text-center">Remaining</th>
+          <th style="width: 360px;">Record Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><span class="chip">{{ r.profile_code }}</span></td>
+          <td class="text-center">{{ r.cornices_per_box }}</td>
+          <td class="text-center">{{ r.target }}</td>
+          <td class="text-center">{{ r.boxed }}</td>
+          <td class="text-center fw-bold">{{ r.remaining }}</td>
+          <td>
+            <form method="post" action="{{ url_for('moulded_boxing.save_line') }}" class="row g-2 align-items-end">
+              {{ forms[r.profile_code].hidden_tag() }}
+              <div class="col-5">
+                <label class="form-label mb-0">Boxes</label>
+                {{ forms[r.profile_code].boxes_packed(class="form-control", placeholder="0") }}
+              </div>
+              <div class="col-5">
+                <label class="form-label mb-0">Leftovers</label>
+                {{ forms[r.profile_code].leftovers(class="form-control", placeholder="0") }}
+              </div>
+              <div class="col-2 d-grid">
+                {{ forms[r.profile_code].submit(class="btn btn-primary") }}
+              </div>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">All profiles boxed for this session. 🎉</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <a href="{{ url_for('moulded_cornice.view_sessions') }}" class="btn btn-link mt-2">Back to Moulded Sessions</a>
+</div>
+{% endblock %}

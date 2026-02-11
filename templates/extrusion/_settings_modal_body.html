@@ -1,0 +1,37 @@
+<div class="mb-3 d-flex justify-content-between align-items-center">
+  <h6 class="mb-0">Recommended (Latest Active)</h6>
+  <a href="{{ settings_manage_url }}" class="small">Edit on settings page →</a>
+</div>
+
+{% if latest_settings %}
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="small text-muted">Effective From</div>
+      <div class="fw-semibold">
+        {{ latest_settings.effective_from.strftime('%Y-%m-%d %H:%M') if latest_settings.effective_from else '-' }}
+      </div>
+    </div>
+    <div class="col-6 col-md-3"><div class="small text-muted">RPM</div><div class="fw-semibold">{{ latest_settings.rpm or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">GPPS kg/h</div><div class="fw-semibold">{{ latest_settings.gpps_kg_h or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">Talc kg/h</div><div class="fw-semibold">{{ latest_settings.talc_kg_h or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">FR kg/h</div><div class="fw-semibold">{{ latest_settings.fire_retardant_kg_h or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">Recycling kg/h</div><div class="fw-semibold">{{ latest_settings.recycling_kg_h or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">CO₂ kg/h</div><div class="fw-semibold">{{ latest_settings.co2_kg_h or '-' }}</div></div>
+    <div class="col-6 col-md-3"><div class="small text-muted">Alcohol L/h</div><div class="fw-semibold">{{ latest_settings.alcohol_l_h or '-' }}</div></div>
+  </div>
+
+  {% if latest_settings.heat_table %}
+    <hr>
+    <h6 class="mb-2">Heat Zones (Recommended)</h6>
+    <div class="row g-2">
+      {% for k, v in latest_settings.heat_table.items() %}
+        <div class="col-6 col-md-3">
+          <div class="small text-muted">{{ k|replace('_',' ')|title }}</div>
+          <div class="fw-semibold">{{ v }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% else %}
+  <div class="text-muted">No active recommended settings for this profile.</div>
+{% endif %}

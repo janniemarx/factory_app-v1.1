@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4 text-center">Machine Profile Assignments</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row">
+      {% for machine in machines %}
+      <div class="col-md-4 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary text-white">
+            <b>{{ machine.name }}</b>
+          </div>
+          <div class="card-body">
+            {% for profile in profiles %}
+            <div class="mb-3">
+              <label class="form-label {% if urgent_profiles and profile.code in urgent_profiles %}text-danger fw-bold{% endif %}">
+                {{ profile.code }}
+                {% if urgent_profiles and profile.code in urgent_profiles %}
+                  <span class="badge bg-danger ms-1">URGENT</span>
+                {% endif %}
+                ({{ profile.density }}g/l)
+              </label>
+              <input type="number"
+                     class="form-control"
+                     name="profile_count_{{ machine.id }}_{{ profile.code }}"
+                     value="{{ assignment_counts.get((machine.id, profile.code), 0) }}"
+                     min="0" max="10">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-4">
+      <button class="btn btn-success btn-lg w-100">Save Assignments</button>
+    </div>
+  </form>
+  <div class="alert alert-info mt-3">
+    <b>Tip:</b> Urgent profiles are marked in red. Manual changes will override the automatic assignment.
+  </div>
+</div>
+{% endblock %}

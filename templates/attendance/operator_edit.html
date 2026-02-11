@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Edit Operator: {{ op.full_name or op.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+  <h3>Edit Operator</h3>
+  <div class="mb-2 text-muted">{{ op.full_name or op.username }} ({{ op.username }})</div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+    <div class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label">Currency</label>
+        <input name="currency" class="form-control" value="{{ op.currency or 'ZAR' }}" maxlength="8">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Hourly rate</label>
+        <input name="hourly_rate" class="form-control" type="number" step="0.01" value="{{ '%.2f' % (op.hourly_rate or 0) }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Employment start</label>
+        <input name="employment_start_date" type="date" class="form-control" value="{{ (op.employment_start_date or None)|default('', true) and op.employment_start_date.isoformat() }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Work days/week</label>
+        <input name="work_days_per_week" class="form-control" type="number" min="1" max="6" value="{{ op.work_days_per_week or 5 }}">
+      </div>
+    </div>
+
+    <hr>
+    <h5>Leave entitlements</h5>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Annual leave days/year</label>
+        <input name="annual_entitlement_days" class="form-control" type="number" step="0.5" value="{{ op.annual_entitlement_days or 15 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Sick leave days / 36 months</label>
+        <input name="sick_entitlement_days" class="form-control" type="number" step="0.5" value="{{ op.sick_entitlement_days or 30 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Family responsibility days/year</label>
+        <input name="family_resp_days_per_year" class="form-control" type="number" step="0.5" value="{{ op.family_resp_days_per_year or 3 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Special study days/year</label>
+        <input name="special_study_days_per_year" class="form-control" type="number" step="0.5" value="{{ op.special_study_days_per_year or 0 }}">
+      </div>
+    </div>
+
+    <hr>
+    <h5>Opening balances (go-live)</h5>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Annual leave (days)</label>
+        <input name="opening_annual_days" class="form-control" type="number" step="0.5" value="{{ op.opening_annual_days or 0 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Sick leave (days)</label>
+        <input name="opening_sick_days" class="form-control" type="number" step="0.5" value="{{ op.opening_sick_days or 0 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Family responsibility (days)</label>
+        <input name="opening_family_days" class="form-control" type="number" step="0.5" value="{{ op.opening_family_days or 0 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Special study (days)</label>
+        <input name="opening_special_days" class="form-control" type="number" step="0.5" value="{{ op.opening_special_days or 0 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Opening balance as of</label>
+        <input name="opening_balance_asof" type="date" class="form-control" value="{{ (op.opening_balance_asof or None)|default('', true) and op.opening_balance_asof.isoformat() }}">
+      </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <a class="btn btn-secondary" href="{{ url_for('attendance.operators') }}">Back</a>
+      <button class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

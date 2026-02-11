@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+
+{# ---------- helpers ---------- #}
+{% macro pick(ht, keys, default='-') -%}
+  {%- set ns = namespace(val=None) -%}
+  {%- for k in keys -%}
+    {%- if ns.val is none and ht.get(k) is not none -%}
+      {%- set ns.val = ht.get(k) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ ns.val if ns.val is not none else default }}
+{%- endmacro %}
+
+{% block content %}
+<style>
+  /* Layout helpers */
+  .kv-grid{display:grid;gap:.75rem}
+  .kv-card{border:1px solid var(--bs-border-color); border-radius:12px; padding:.6rem .75rem; background:#fff}
+  .kv-label{font-size:.78rem;color:#6c757d;margin-bottom:.15rem}
+  .kv-value{font-weight:600}
+
+  /* Responsive grids (kept for consistency/possible reuse) */
+  .grid-2 {grid-template-columns: repeat(2, minmax(0,1fr));}
+  .grid-3 {grid-template-columns: repeat(3, minmax(0,1fr));}
+  .grid-4 {grid-template-columns: repeat(4, minmax(0,1fr));}
+  .grid-6 {grid-template-columns: repeat(6, minmax(0,1fr));}
+
+  .setpoints { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .zones     { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  @media (min-width: 576px) { .setpoints{grid-template-columns:repeat(3,1fr)} .zones{grid-template-columns:repeat(3,1fr)} }
+  @media (min-width: 768px) { .setpoints{grid-template-columns:repeat(4,1fr)} .zones{grid-template-columns:repeat(4,1fr)} }
+  @media (min-width: 1200px){ .setpoints{grid-template-columns:repeat(6,1fr)} .zones{grid-template-columns:repeat(6,1fr)} }
+</style>
+
+<div class="row justify-content-center mt-4">
+  <div class="col-xl-10 col-lg-11">
+
+    <!-- Header / Status -->
+    <div class="card shadow p-4 mt-4 mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center">
+        <div class="mb-2">
+          <h2 class="mb-0">
+            Extrusion — <span class="text-primary">{{ profile_label }}</span>
+            <small class="text-muted">on {{ extruder_label }}</small>
+          </h2>
+          <div class="small text-muted mt-1">
+            Started: {{ session.started_at.strftime('%Y-%m-%d %H:%M') if session.started_at else '-' }}
+            {% if session.ended_at %} · Ended: {{ session.ended_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+          </div>
+        </div>
+        <div class="text-end mb-2">
+          <span class="badge fs-6
+            {% if session.status == 'completed' %}bg-success
+            {% elif session.is_paused %}bg-warning text-dark
+            {% else %}bg-info text-dark{% endif %}">
+            {{ session.status|replace('_',' ')|title }}{% if session.is_paused %} (Paused){% endif %}
+          </span>
+          <div class="mt-2">
+            <a href="{{ url_for('extrusion.sessions_list') }}" class="btn btn-link btn-sm">← Back to Sessions</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 flex-wrap mt-3">
+        <!-- View read-only settings modal -->
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">
+          <i class="bi bi-gear"></i> View Settings
+        </button>
+
+        <!-- Shortcut to full edit page (manage settings) -->
+        <a class="btn btn-outline-primary btn-sm" href="{{ settings_manage_url }}">
+          <i class="bi bi-sliders"></i> Edit All Settings (separate page)
+        </a>
+
+        <!-- Checklist -->
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#checklistModal">
+          <i class="bi bi-clipboard-check"></i> Checklist
+        </button>
+
+        <!-- Pause/Resume -->
+        {% if session.status == 'running' and not session.is_paused %}
+          <form method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button name="pause" class="btn btn-outline-warning btn-sm">
+              <i class="bi bi-pause"></i> Pause
+            </button>
+          </form>
+        {% elif session.status == 'running' and session.is_paused %}
+          <form method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button name="resume" class="btn btn-success btn-sm">
+              <i class="bi bi-play-fill"></i> Resume
+            </button>
+          </form>
+        {% endif %}
+
+        <!-- COMPLETE via modal: capture cycle counter then complete -->
+        {% if session.status == 'running' %}
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#completeModal">
+            <i class="bi bi-check-circle"></i> Complete
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Metrics row -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+          <div class="text-muted small">Run Hours</div>
+          <div class="fs-4">{{ "%.2f"|format(metrics.run_hours or 0) }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+          <div class="text-muted small">Pieces Produced</div>
+          <div class="fs-4">{{ metrics.pieces or 0 }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+          <div class="text-muted small">Theoretical Boxes</div>
+          <div class="fs-4">{{ metrics.theoretical_boxes or 0 }}</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+          <div class="text-muted small">Operator</div>
+          <div class="fs-6">
+            {{ session.operator.full_name or session.operator.username if session.operator else '-' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expected vs Actual (read-only table) -->
+    <div class="card shadow p-3 mb-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Material Usage — Expected vs Actual</h5>
+        <small class="text-muted">Expected based on rate plans × active hours</small>
+      </div>
+      <div class="table-responsive mt-2">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Material</th>
+              <th class="text-end">Expected</th>
+              <th class="text-end">Actual</th>
+              <th class="text-end d-none d-md-table-cell">Diff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set E = metrics.expected or {} %}
+            {% set A = metrics.actual or {} %}
+            {% set rows = [
+              ('GPPS',        E.get('gpps_kg', 0),           A.get('gpps_kg', 0),           'kg'),
+              ('Talc',        E.get('talc_kg', 0),           A.get('talc_kg', 0),           'kg'),
+              ('Fire Retard.',E.get('fire_retardant_kg', 0), A.get('fire_retardant_kg', 0), 'kg'),
+              ('Recycling',   E.get('recycling_kg', 0),      A.get('recycling_kg', 0),      'kg'),
+              ('CO₂',         E.get('co2_kg', 0),            A.get('co2_kg', 0),            'kg'),
+              ('Alcohol',     E.get('alcohol_l', 0),         A.get('alcohol_l', 0),         'L'),
+              ('Oil',         0,                              A.get('oil_l', 0),            'L'),
+            ] %}
+            {% for name, exp, act, unit in rows %}
+              {% set diff = (act - exp) %}
+              <tr>
+                <td>{{ name }}</td>
+                <td class="text-end">{{ exp }}</td>
+                <td class="text-end">{{ act }}</td>
+                <td class="text-end d-none d-md-table-cell">
+                  <span class="badge {% if diff|float > 0 %}bg-danger{% elif diff|float < 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                    {{ "%.3f"|format(diff) }} {{ unit }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Usage + Cycle log -->
+    <div class="row g-3">
+      <!-- Usage -->
+      <div class="col-lg-6">
+        <div class="card shadow p-3 h-100">
+          <h5 class="mb-2">Log Material Usage</h5>
+          <form method="post" class="row g-2">
+            {{ usage_form.hidden_tag() }}
+            <div class="col-12 col-md-4">
+              {{ usage_form.material.label(class="form-label") }}
+              {{ usage_form.material(class="form-select") }}
+            </div>
+            <div class="col-6 col-md-4">
+              {{ usage_form.unit.label(class="form-label") }}
+              {{ usage_form.unit(class="form-select") }}
+            </div>
+            <div class="col-6 col-md-4">
+              {{ usage_form.quantity.label(class="form-label") }}
+              {{ usage_form.quantity(class="form-control", placeholder="0") }}
+            </div>
+            <div class="col-12">
+              {{ usage_form.note.label(class="form-label") }}
+              {{ usage_form.note(class="form-control") }}
+            </div>
+            <div class="col-12 d-grid mt-1">
+              <button name="log_usage" class="btn btn-outline-primary">Add Usage</button>
+            </div>
+          </form>
+
+          <h6 class="mt-4 mb-2">Material Usage Log</h6>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Time</th>
+                  <th>Material</th>
+                  <th>Qty</th>
+                  <th class="d-none d-md-table-cell">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in session.material_usages|sort(attribute='timestamp') %}
+                <tr>
+                  <td>{{ u.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                  <td>{{ u.material.name.replace('_',' ') }}</td>
+                  <td>
+                    {% if u.unit.name == 'BAGS_25KG' %}
+                      {{ u.quantity }} × 25kg
+                    {% elif u.unit.name == 'CANS_5L' %}
+                      {{ u.quantity }} × 5L
+                    {% else %}
+                      {{ u.quantity }} {{ 'kg' if u.unit.name == 'KG' else 'L' }}
+                    {% endif %}
+                  </td>
+                  <td class="d-none d-md-table-cell">{{ u.note or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-muted">No usage logged yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Cycle log (read-only list) -->
+      <div class="col-lg-6">
+        <div class="card shadow p-3 h-100">
+          <h5 class="mb-2">Cycle Counter Log</h5>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Reading</th>
+                  <th class="d-none d-md-table-cell">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in session.cycle_logs|sort(attribute='timestamp') %}
+                <tr>
+                  <td>{{ c.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                  <td>{{ c.reading_type.name.title() }}</td>
+                  <td>{{ c.reading_value }}</td>
+                  <td class="d-none d-md-table-cell">{{ c.note or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-muted">No cycles logged yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL (READ-ONLY) -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-modal="false" role="dialog">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header d-flex align-items-center gap-2">
+            <h5 class="modal-title flex-grow-1">Settings (Read-only)</h5>
+            <button id="refreshSettingsBtn" type="button" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+          </div>
+
+          <div class="modal-body" id="settingsModalBody">
+            {% include 'extrusion/_settings_modal_body.html' %}
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST MODAL -->
+    <div class="modal fade" id="checklistModal" tabindex="-1" aria-modal="false" role="dialog">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <form method="post">
+            {{ checklist_form.hidden_tag() }}
+            <div class="modal-header">
+              <h5 class="modal-title">Pre-start Checklist</h5>
+            </div>
+            <div class="modal-body">
+              <div class="mb-2">
+                {{ checklist_form.answers_json.label(class="form-label") }}
+                {{ checklist_form.answers_json(class="form-control", rows="6", placeholder='{"guards":"ok","oil_level":"ok","cooling":"ok"}') }}
+                <div class="form-text">Paste/edit JSON answers here.</div>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    {{ checklist_form.approved(class="form-check-input", id="chkApproved2") }}
+                    <label for="chkApproved2" class="form-check-label">Approved?</label>
+                  </div>
+                </div>
+                <div class="col-md-8">
+                  {{ checklist_form.notes.label(class="form-label") }}
+                  {{ checklist_form.notes(class="form-control") }}
+                </div>
+              </div>
+
+              {% if prestart_checklist %}
+                <hr>
+                <h6 class="mb-2">Last Saved</h6>
+                <div class="small text-muted">
+                  At {{ prestart_checklist.completed_at.strftime('%Y-%m-%d %H:%M') if prestart_checklist.completed_at else '-' }}
+                </div>
+                <pre class="bg-light p-2 mt-2" style="max-height:220px;overflow:auto;">{{ prestart_checklist.answers | tojson(indent=2) }}</pre>
+              {% endif %}
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button name="save_checklist" class="btn btn-primary">Save Checklist</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETE MODAL (capture final cuts, then complete) -->
+    <div class="modal fade" id="completeModal" tabindex="-1" aria-modal="false" role="dialog">
+      <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content">
+          <form method="post">
+            {{ cycle_form.hidden_tag() }}
+            <input type="hidden" name="complete" value="1">
+            <div class="modal-header">
+              <h5 class="modal-title">Complete Session — Final Cuts</h5>
+            </div>
+            <div class="modal-body">
+              <label for="finalCuts" class="form-label">Cutter cuts (pieces)</label>
+              <input id="finalCuts"
+                     name="cuts"
+                     type="number"
+                     min="0"
+                     step="1"
+                     class="form-control"
+                     placeholder="0"
+                     required>
+              <div class="form-text">
+                Enter how many times the cutter has cut — this equals the number of cornices produced.
+              </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Complete Session
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script>
+(function(){
+  const btn = document.getElementById('refreshSettingsBtn');
+  const body = document.getElementById('settingsModalBody');
+  const url  = "{{ url_for('extrusion.session_settings_snippet', session_id=session.id) }}";
+
+  function setBusy(b){
+    if (!btn) return;
+    btn.disabled = !!b;
+    btn.innerHTML = b
+      ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Refreshing…'
+      : '<i class="bi bi-arrow-clockwise"></i> Refresh';
+  }
+
+  if (btn && body) {
+    btn.addEventListener('click', function(){
+      setBusy(true);
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.text())
+        .then(html => { body.innerHTML = html; })
+        .catch(() => { alert('Could not refresh settings right now.'); })
+        .finally(() => setBusy(false));
+    });
+  }
+})();
+</script>
+{% endblock %}

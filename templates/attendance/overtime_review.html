@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-sm">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+          <h3 class="mb-0">Overtime Request #{{ req.id }}</h3>
+          <div class="text-muted small">{{ req.operator.full_name or req.operator.username }}</div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ url_for('attendance.overtime_queue',
+                            start_date=request.args.get('start_date'),
+                            end_date=request.args.get('end_date'),
+                            room_number=request.args.get('room_number')) }}">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      </div>
+
+      <div class="row g-3 mb-2">
+        <div class="col-md-3"><span class="text-muted small">Day</span><div class="fw-semibold">{{ req.day }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">Type</span><div class="fw-semibold text-uppercase">{{ req.ot_type }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">Proposed Hours</span><div class="fw-semibold">{{ (req.proposed_hours or req.hours or 0)|round(2) }}</div></div>
+        <div class="col-md-3"><span class="text-muted small">Room</span><div class="fw-semibold">{{ req.operator.room_number if req.operator.room_number is not none else '—' }}</div></div>
+      </div>
+
+      {# NEW: show actual punches for the day #}
+      {% if ui_first_in or ui_last_out %}
+      <div class="text-muted small mb-3">
+        Punches: {{ ui_first_in.strftime('%H:%M') if ui_first_in else '—' }} → {{ ui_last_out.strftime('%H:%M') if ui_last_out else '—' }}
+        {% if daily and daily.worked_seconds is not none %}
+          • worked {{ ((daily.worked_seconds or 0)/3600.0)|round(2) }}h
+        {% endif %}
+        {% if ui_segment_count is not none %}
+          • {{ ui_segment_count }} seg
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if req.reason %}
+      <div class="mb-3">
+        <span class="text-muted small d-block">Existing Reason</span>
+        <div class="border rounded p-2">{{ req.reason }}</div>
+      </div>
+      {% endif %}
+
+      <form method="post" class="border rounded p-3">
+        {{ form.hidden_tag() }}
+        {{ form.request_id(value=req.id) }}
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Decision</label>
+            {{ form.decision(class="form-select") }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Adjust Hours (optional)</label>
+            {{ form.hours(class="form-control", placeholder="e.g. 1.5") }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Reason (required)</label>
+            {{ form.reason(class="form-control", rows="3", placeholder="Why is the overtime approved/rejected?") }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Notes (internal)</label>
+            {{ form.notes(class="form-control", rows="3") }}
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          {{ form.submit(class="btn btn-primary") }}
+          <a class="btn btn-light"
+             href="{{ url_for('attendance.overtime_queue',
+                              start_date=request.args.get('start_date'),
+                              end_date=request.args.get('end_date'),
+                              room_number=request.args.get('room_number')) }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

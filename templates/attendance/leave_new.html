@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-sm">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0">Capture Leave</h3>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.leave_queue') }}">
+          <i class="bi bi-list-task"></i> Pending
+        </a>
+      </div>
+
+      <form method="post" autocomplete="off" id="leaveForm">
+        {{ form.hidden_tag() }}
+
+        <div class="row g-3">
+          <!-- Employee -->
+          <div class="col-md-6">
+            <label class="form-label">Employee</label>
+
+            <div class="dropdown w-100" id="empCombo">
+              <input type="hidden" name="{{ form.operator_id.name }}" id="operatorValue" value="{{ form.operator_id.data or '' }}">
+              <button class="form-select text-start d-flex justify-content-between align-items-center"
+                      type="button" id="operatorButton" data-bs-toggle="dropdown" aria-expanded="false"
+                      aria-describedby="empHelp">
+                <span id="operatorLabel">— Please select employee —</span>
+                <span class="ms-2 flex-shrink-0"><i class="bi bi-caret-down-fill"></i></span>
+              </button>
+
+              <div class="dropdown-menu p-2 w-100" style="min-width:100%; max-height:360px; overflow:auto;">
+                <input id="empSearch" class="form-control form-control-sm mb-2" placeholder="Type to search…" autocomplete="off">
+                <ul class="list-unstyled mb-0" id="empList">
+                  {% for value, label in form.operator_id.choices %}
+                    <li><button type="button" class="dropdown-item" data-value="{{ value }}">{{ label }}</button></li>
+                  {% endfor %}
+                </ul>
+              </div>
+
+              <div id="empHelp" class="form-text">Open the list, type to filter; Enter picks the first match.</div>
+              <div id="empError" class="invalid-feedback d-block" style="display:none;">Please select an employee.</div>
+            </div>
+          </div>
+
+          <!-- Leave type -->
+          <div class="col-md-6">
+            <label class="form-label">Leave Type</label>
+            {{ form.leave_type(class="form-select", id="leaveType") }}
+          </div>
+
+          <!-- Date range -->
+          <div class="col-sm-6 col-md-3">
+            <label class="form-label">From</label>
+            {{ form.start_date(class="form-control", type="date", id="startDate", required=True) }}
+            <div class="form-text">First day of leave.</div>
+          </div>
+          <div class="col-sm-6 col-md-3">
+            <label class="form-label">To</label>
+            {{ form.end_date(class="form-control", type="date", id="endDate", required=True) }}
+            <div class="form-text">Last day of leave (inclusive).</div>
+          </div>
+
+          <!-- Notes -->
+          <div class="col-12">
+            <label class="form-label">Notes</label>
+            {{ form.notes(class="form-control", rows="3") }}
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          {{ form.submit(class="btn btn-primary") }}
+          <a class="btn btn-light" href="{{ url_for('attendance.dashboard') }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // === Employee combobox (unchanged behaviour) ===
+  const form    = document.getElementById('leaveForm');
+  const combo   = document.getElementById('empCombo');
+  const btn     = document.getElementById('operatorButton');
+  const labelEl = document.getElementById('operatorLabel');
+  const hidden  = document.getElementById('operatorValue');
+  const search  = document.getElementById('empSearch');
+  const list    = document.getElementById('empList');
+  const err     = document.getElementById('empError');
+
+  const norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  function setSelection(val, text){
+    hidden.value = val || '';
+    labelEl.textContent = text || '— Please select employee —';
+    btn.classList.remove('is-invalid');
+    if (err) err.style.display = 'none';
+  }
+  function filter(){
+    const term = norm(search.value);
+    let firstVisible = null;
+    for (const b of list.querySelectorAll('.dropdown-item')) {
+      const hay = norm(b.textContent + ' ' + b.dataset.value);
+      const show = !term || hay.includes(term);
+      b.closest('li').style.display = show ? '' : 'none';
+      if (show && !firstVisible) firstVisible = b;
+    }
+    list.querySelectorAll('.dropdown-item').forEach(b => b.classList.remove('active'));
+    if (firstVisible) firstVisible.classList.add('active');
+  }
+  list.addEventListener('click', e => {
+    const item = e.target.closest('.dropdown-item'); if (!item) return;
+    e.preventDefault(); setSelection(item.dataset.value, item.textContent.trim());
+    bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+  });
+  search.addEventListener('input', filter);
+  search.addEventListener('keydown', e => {
+    const visible = [...list.querySelectorAll('.dropdown-item')].filter(b => b.closest('li').style.display !== 'none');
+    const idx = visible.findIndex(b => b.classList.contains('active'));
+    if (e.key === 'Enter') { e.preventDefault(); const pick = visible[0]; if (pick) pick.click(); }
+    else if (e.key === 'ArrowDown' && visible.length) { e.preventDefault(); const next = visible[Math.min((idx<0?0:idx+1), visible.length-1)]; visible.forEach(b=>b.classList.remove('active')); next.classList.add('active'); next.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp' && visible.length) { e.preventDefault(); const prev = visible[Math.max((idx<0?0:idx-1), 0)]; visible.forEach(b=>b.classList.remove('active')); prev.classList.add('active'); prev.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Escape') { e.preventDefault(); bootstrap.Dropdown.getOrCreateInstance(btn).hide(); }
+  });
+  combo.addEventListener('shown.bs.dropdown', () => { search.value=''; filter(); setTimeout(() => search.focus(), 0); });
+  if (hidden.value) {
+    const current = list.querySelector(`.dropdown-item[data-value="${hidden.value}"]`);
+    if (current) labelEl.textContent = current.textContent.trim();
+  } else { labelEl.textContent = '— Please select employee —'; }
+  form.addEventListener('submit', e => {
+    if (!hidden.value) {
+      e.preventDefault();
+      btn.classList.add('is-invalid');
+      if (err) err.style.display = 'block';
+      bootstrap.Dropdown.getOrCreateInstance(btn).show();
+      setTimeout(() => search.focus(), 0);
+    }
+  });
+
+  // === Date range helpers ===
+  const start = document.getElementById('startDate');
+  const end   = document.getElementById('endDate');
+
+  function todayISO() {
+    const t = new Date();
+    const y = t.getFullYear(), m = String(t.getMonth()+1).padStart(2,'0'), d = String(t.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function ensureDefaults() {
+    if (!start.value) start.value = todayISO();
+    if (!end.value)   end.value   = start.value;
+    end.min = start.value;
+  }
+
+  function clampEnd() {
+    if (end.value && start.value && end.value < start.value) {
+      end.value = start.value;
+    }
+    end.min = start.value || '';
+  }
+
+  ensureDefaults();
+  start.addEventListener('change', clampEnd);
+  end.addEventListener('change', clampEnd);
+})();
+</script>
+{% endblock %}

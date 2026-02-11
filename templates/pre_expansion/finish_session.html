@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow p-4">
+      <h2 class="mb-3 text-center">Finish Pre-Expansion Session</h2>
+
+      <!-- Session summary (read-only) -->
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Batch Number:</b> {{ pre_exp.batch_no }}</li>
+        <li class="list-group-item"><b>Operator:</b>
+          {% if pre_exp.operator %}
+            {{ pre_exp.operator.full_name or pre_exp.operator.username }}
+          {% else %}
+            <span class="text-muted">Unknown</span>
+          {% endif %}
+        </li>
+        <li class="list-group-item"><b>Started at:</b> {{ pre_exp.start_time.strftime("%Y-%m-%d %H:%M") }}</li>
+        <li class="list-group-item"><b>Purpose:</b> {{ pre_exp.purpose|capitalize }}</li>
+        <li class="list-group-item"><b>Raw Material Before (Kg):</b> {{ pre_exp.planned_kg }}</li>
+      </ul>
+
+      <!-- Finish form -->
+      <form method="post" id="finishForm" autocomplete="off">
+        <!-- CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Hidden checklist fields (MUST be inside the form so they're posted) -->
+        <input type="hidden" name="check11" id="hidden_check11">
+        <input type="hidden" name="check12" id="hidden_check12">
+        <input type="hidden" name="check13" id="hidden_check13">
+
+        <div class="mb-3">
+          <label for="raw_after_kg" class="form-label"><b>Raw Material After (Kg)</b></label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max="{{ pre_exp.planned_kg }}"
+            name="raw_after_kg"
+            id="raw_after_kg"
+            class="form-control form-control-lg"
+            required
+            autocomplete="off">
+          <div class="form-text">
+            Enter the weight of the raw material remaining after pre-expansion.
+          </div>
+        </div>
+
+		<div class="mb-3">
+		  <label class="form-label"><b>Raw Material Used (Kg)</b></label>
+		  <input type="text" class="form-control form-control-lg bg-light" id="raw_used_preview" value="-" readonly>
+		  <div class="form-text text-muted">Calculated as: before ({{ pre_exp.planned_kg }}) − after.</div>
+		</div>
+
+        <!-- Modal Trigger Button -->
+        <button
+          type="button"
+          class="btn btn-danger btn-lg w-100"
+          id="finishSessionBtn"
+          data-bs-toggle="modal"
+          data-bs-target="#afterChecklistModal"
+          disabled>
+          Finish Session
+        </button>
+
+        <a
+          href="{{ url_for('pre_expansion.active_session', session_id=pre_exp.id) }}"
+          class="btn btn-outline-secondary btn-lg w-100 mt-2">
+          Back to Session
+        </a>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- After Operation Checklist Modal -->
+<div
+  class="modal fade"
+  id="afterChecklistModal"
+  tabindex="-1"
+  aria-labelledby="afterChecklistModalLabel"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="afterChecklistModalLabel">After Operation Checklist</h5>
+      </div>
+      <div class="modal-body">
+        <form id="afterChecklistForm" onsubmit="return false;">
+          <ul class="list-group mb-3">
+            <li class="list-group-item">
+              <input type="checkbox" id="aCheck11" name="check11" value="y" required>
+              11. Check if all material in expansion chamber and in fluidized bed drier are cleared (after operation).
+            </li>
+            <li class="list-group-item">
+              <input type="checkbox" id="aCheck12" name="check12" value="y" required>
+              12. Check if power supply of screw conveyor, electronic scale, fluidized bed drier and pre-expander are switched off (after operation).
+            </li>
+            <li class="list-group-item">
+              <input type="checkbox" id="aCheck13" name="check13" value="y" required>
+              13. Check if compressed air and steam valves are closed (after operation).
+            </li>
+          </ul>
+          <div id="afterChecklistError" class="alert alert-danger d-none">
+            Please complete all after-operation checklist items before finishing.
+          </div>
+          <button type="button" class="btn btn-danger w-100" id="afterChecklistSubmitBtn" onclick="submitAfterChecklist()">
+            Checklist Complete &amp; Finish
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Enable the Finish button only when a valid 'after' value is entered
+document.addEventListener('DOMContentLoaded', function() {
+  const before = parseFloat("{{ pre_exp.planned_kg }}");
+  const kgInput = document.getElementById('raw_after_kg');
+  const btn = document.getElementById('finishSessionBtn');
+  const preview = document.getElementById('raw_used_preview');
+  kgInput.addEventListener('input', function() {
+    const val = parseFloat(kgInput.value);
+    const ok = (kgInput.value && !isNaN(val) && val >= 0 && !isNaN(before) && val <= before);
+    btn.disabled = !ok;
+
+    if (ok) {
+      const used = Math.max(before - val, 0);
+      preview.value = used.toFixed(2);
+    } else {
+      preview.value = '-';
+    }
+  });
+});
+
+// Copy modal checks into hidden fields, then submit the main form
+function submitAfterChecklist() {
+  let allChecked = true;
+  for (let i = 11; i <= 13; i++) {
+    if (!document.getElementById('aCheck' + i).checked) {
+      allChecked = false;
+    }
+  }
+
+  if (!allChecked) {
+    document.getElementById('afterChecklistError').classList.remove('d-none');
+    return;
+  }
+
+  // populate hidden fields in the main form
+  document.getElementById('hidden_check11').value = document.getElementById('aCheck11').checked ? 'y' : '';
+  document.getElementById('hidden_check12').value = document.getElementById('aCheck12').checked ? 'y' : '';
+  document.getElementById('hidden_check13').value = document.getElementById('aCheck13').checked ? 'y' : '';
+
+  // close modal
+  const modal = bootstrap.Modal.getInstance(document.getElementById('afterChecklistModal'));
+  modal.hide();
+
+  // prevent double submits
+  const submitBtn = document.getElementById('afterChecklistSubmitBtn');
+  submitBtn.disabled = true;
+
+  // submit the main form
+  document.getElementById('finishForm').submit();
+}
+</script>
+{% endblock %}

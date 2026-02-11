@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Moulded Boxing Sessions</h3>
+    <a class="btn btn-primary" href="{{ url_for('moulded_boxing.start') }}">Start Boxing</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Moulded Session</th>
+          <th>Operator</th>
+          <th>Status</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Drying (min)</th>
+          <th>Time/Box (min)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+          <tr>
+            <td>#{{ s.id }}</td>
+            <td>{{ s.moulded_session_id }}</td>
+            <td>{{ s.operator.full_name if s.operator else '-' }}</td>
+            <td>
+              {% if s.status == 'stock_ready' %}
+                <span class="badge bg-success">Stock Ready</span>
+              {% elif s.status == 'pending_qc' %}
+                <span class="badge bg-warning text-dark">Pending QC</span>
+              {% elif s.status == 'paused' %}
+                <span class="badge bg-secondary">Paused</span>
+              {% else %}
+                <span class="badge bg-info text-dark">Active</span>
+              {% endif %}
+            </td>
+            <td>{{ s.start_time.strftime('%Y-%m-%d %H:%M') if s.start_time else '-' }}</td>
+            <td>{{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</td>
+            <td>{{ s.drying_minutes }}</td>
+            <td>{{ s.time_per_box_min or '-' }}</td>
+            <td class="text-end">
+              {% if s.status in ['active','paused'] %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('moulded_boxing.boxing', moulded_session_id=s.moulded_session_id) }}">Open</a>
+              {% elif s.status == 'pending_qc' %}
+                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('moulded_boxing.qc', boxing_session_id=s.id) }}">QC</a>
+              {% else %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('moulded_boxing.qc', boxing_session_id=s.id) }}">View</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="text-center text-muted">No boxing sessions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

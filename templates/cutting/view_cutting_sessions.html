@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card shadow p-4 mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="mb-0">Wire Cutting Sessions</h2>
+          <a href="{{ url_for('cutting.start_session') }}" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-circle"></i> New Session
+          </a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Block</th>
+                <th>Machine</th>
+                <th>Profile</th>
+                <th>Operator</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Ended</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for session in sessions %}
+              <tr>
+                <td>{{ session.id }}</td>
+                <td>
+                  {% if session.block %}
+                    <span class="fw-bold">Block {{ session.block.block_number }}</span>
+                    <div class="text-muted small">{{ session.block.weight }} kg</div>
+                  {% else %}-{% endif %}
+                </td>
+                <td>{{ session.machine.name if session.machine else '-' }}</td>
+                <td>{{ session.profile_code }}</td>
+                <td>{{ session.operator.full_name or session.operator.username if session.operator else '-' }}</td>
+                <td>
+                  {% if session.status == 'completed' %}
+                    <span class="badge bg-success">Completed</span>
+                  {% elif session.status == 'active' and session.is_paused %}
+                    <span class="badge text-dark" style="background-color:#ffa726;">Paused</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">Active</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {{ session.start_time.strftime('%Y-%m-%d %H:%M') if session.start_time else '-' }}
+                </td>
+                <td>
+                  {{ session.end_time.strftime('%Y-%m-%d %H:%M') if session.end_time else '-' }}
+                </td>
+                <td>
+                  <a href="{{ url_for('cutting.session_detail', session_id=session.id) }}" class="btn btn-outline-primary btn-sm">
+                    View
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="9" class="text-center text-muted">No cutting sessions found.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

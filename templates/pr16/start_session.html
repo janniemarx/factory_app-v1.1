@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-8 col-lg-6">
+    <div class="card shadow p-4">
+      <h2 class="mb-4 text-center">Start PR16 Wrapping Session</h2>
+
+      {% if no_blocks %}
+      <div class="alert alert-warning mb-4 text-center">
+        <b>No PR16 blocks available to wrap.</b><br>
+        Please complete a PR16 profile cut first.
+      </div>
+      {% endif %}
+
+      <form method="post" autocomplete="off">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.block_id.label(class="form-label") }}
+          {{ form.block_id(class="form-select form-select-lg", disabled=no_blocks) }}
+        </div>
+        <div class="mb-3">
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            {{ form.initial_glue_kg.label(class="form-label") }}
+            {{ form.initial_glue_kg(class="form-control form-control-lg", disabled=no_blocks) }}
+          </div>
+          <div class="col-md-6 mb-3">
+            {{ form.initial_paper_m.label(class="form-label") }}
+            {{ form.initial_paper_m(class="form-control form-control-lg", disabled=no_blocks) }}
+            <div class="form-text">
+              If unsure in meters, pick a starting partial roll below.
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          {{ form.start_partial_roll.label(class="form-label") }}
+          {{ form.start_partial_roll(class="form-select form-select-lg", disabled=no_blocks) }}
+          <div class="form-text">
+            A full roll is 300 m (¼ ≈ 75 m, ½ ≈ 150 m, ¾ ≈ 225 m). We’ll add this to the initial paper.
+          </div>
+        </div>
+        </div>
+        <button type="submit" class="btn btn-success btn-lg w-100 mt-2" {% if no_blocks %}disabled{% endif %}>
+          <i class="bi bi-play-circle"></i> {{ form.submit.label.text }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

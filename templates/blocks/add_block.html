@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow p-4">
+      <h2 class="mb-4 text-center">Start Block Production Session</h2>
+      <form method="post" id="blockSessionForm" autocomplete="off">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.pre_expansion_id.label(class="form-label") }}
+          {{ form.pre_expansion_id(class="form-select", required=True, id="pre_expansion_id") }}
+          <div class="form-text">Select a completed, unused pre-expansion batch.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label"><b>Operator:</b> {{ current_user.full_name or current_user.username }}</label>
+        </div>
+        <!-- The button below opens the checklist modal -->
+        <button type="button" class="btn btn-primary btn-lg w-100" id="openBlockChecklistBtn" data-bs-toggle="modal" data-bs-target="#blockChecklistModal" disabled>
+          {{ form.submit.label.text if form.submit.label.text else 'Start Block Session' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Block Production Start Checklist Modal -->
+<div class="modal fade" id="blockChecklistModal" tabindex="-1" aria-labelledby="blockChecklistLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="blockChecklistLabel">Block Production Start Checklist</h5>
+      </div>
+      <div class="modal-body">
+        <form id="blockChecklistForm" onsubmit="return false;">
+          <ul class="list-group mb-3">
+            <li class="list-group-item"><input type="checkbox" id="bcheck1" required> Check for any unusual sounds, vibrations, or odors.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck2" required> Inspect the machine for signs of leaks, such as steam, hydraulic fluid, or water.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck3" required> Complete overall visual inspection to be sure all equipment is operating and safety systems are in place.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck4" required> Check the steam supply pressure and ensure it's within the recommended range.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck5" required> Inspect steam valves, pipes, and fittings for leaks or corrosion.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck6" required> Verify that the steam traps are functioning properly.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck7" required> Check steam hoses and connections for wear or damage.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck8" required> Check hydraulic fluid levels and top up if needed.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck9" required> Inspect hydraulic hoses, fittings, and connections for leaks or damage.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck10" required> Operate hydraulic functions (if applicable) to ensure proper response.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck11" required> Inspect cooling fans, radiators, and cooling mechanisms for debris or blockages.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck12" required> Verify that the cooling system is effectively dissipating heat.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck13" required> Inspect electrical cables, connections, and wiring for wear or damage.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck14" required> Check the control panel for any error codes or abnormalities.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck15" required> Test emergency stop buttons and safety interlocks.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck16" required> Ensure that all safety guards, shields, and covers are properly in place.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck17" required> Test emergency stop buttons and safety switches for functionality.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck18" required> Verify that safety signage is clear and visible.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck19" required> Apply appropriate lubrication to moving parts as recommended by the manufacturer.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck20" required> Record maintenance tasks, observations, and any issues in a maintenance logbook.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck21" required> Keep track of steam pressure readings, fluid levels, and any adjustments made.</li>
+            <li class="list-group-item"><input type="checkbox" id="bcheck22" required> Keep the machine and its surrounding area clean and free from debris.</li>
+          </ul>
+          <div id="blockChecklistError" class="alert alert-danger d-none">Please complete all checklist items before starting the block production session.</div>
+          <button type="button" class="btn btn-success w-100" onclick="submitBlockChecklist()">Checklist Complete & Start Session</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Enable checklist button if a pre-expansion batch is selected
+document.addEventListener('DOMContentLoaded', function() {
+  var preExpSel = document.getElementById('pre_expansion_id');
+  var openBtn = document.getElementById('openBlockChecklistBtn');
+  function validateBlockSessionForm() {
+    if (preExpSel.value && preExpSel.value !== "") {
+      openBtn.disabled = false;
+    } else {
+      openBtn.disabled = true;
+    }
+  }
+  preExpSel.addEventListener('change', validateBlockSessionForm);
+  validateBlockSessionForm();
+});
+
+function submitBlockChecklist() {
+  let allChecked = true;
+  for (let i = 1; i <= 22; i++) {
+    if (!document.getElementById('bcheck' + i).checked) {
+      allChecked = false;
+    }
+  }
+  if (allChecked) {
+    let modal = bootstrap.Modal.getInstance(document.getElementById('blockChecklistModal'));
+    modal.hide();
+    document.getElementById('blockSessionForm').submit();
+  } else {
+    document.getElementById('blockChecklistError').classList.remove('d-none');
+  }
+}
+</script>
+{% endblock %}

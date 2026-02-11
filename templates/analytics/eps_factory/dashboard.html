@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Responsive Chart Container Style -->
+<style>
+  .chart-responsive {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.6 / 1;
+    min-height: 180px;
+    max-height: 400px;
+    margin-bottom: 2rem;
+  }
+  .chart-responsive canvas {
+    position: absolute;
+    width: 100% !important;
+    height: 100% !important;
+    left: 0; top: 0;
+  }
+  @media (max-width: 767px) {
+    .chart-responsive {
+      aspect-ratio: 1 / 1.1;
+      min-height: 140px;
+      max-height: 240px;
+    }
+  }
+</style>
+
+<div class="container py-4">
+  <h2 class="mb-4 text-center">EPS Factory Production Analytics</h2>
+
+  <!-- Filter Form -->
+  <form method="post" class="card shadow p-3 mb-4">
+    {{ form.hidden_tag() }}
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        {{ form.batch_no.label(class="form-label") }}
+        {{ form.batch_no(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.usage_type.label(class="form-label") }}
+        {{ form.usage_type(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.date_from.label(class="form-label") }}
+        {{ form.date_from(class="form-control") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.date_to.label(class="form-label") }}
+        {{ form.date_to(class="form-control") }}
+      </div>
+      <div class="col-md-3">
+        {{ form.submit(class="btn btn-primary w-100") }}
+      </div>
+    </div>
+  </form>
+
+  {% if analytics_data %}
+  <div class="card shadow p-3">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Batch No.</th>
+            <th>Purpose</th>
+            <th>Raw Material Used (kg)</th>
+            <th>Total Weight Produced (kg)</th>
+            <th>Total Items Produced</th>
+            <th>Wasted Material (kg)</th>
+            <th>Total Production Time (min)</th>
+            <th>Average Time per Item (min)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for data in analytics_data %}
+          <tr>
+            <td>
+              {% if data.pre_expansion_id %}
+                <a
+                  href="{{ url_for('pre_expansion.view_pre_expansion_detail', pre_expansion_id=data.pre_expansion_id) }}"
+                  class="text-primary fw-bold text-decoration-underline"
+                  style="cursor:pointer;"
+                  title="View Pre-Expansion Batch Details">
+                  {{ data.batch_no }}
+                </a>
+              {% else %}
+                {{ data.batch_no }}
+              {% endif %}
+            </td>
+            <td>{{ data.purpose }}</td>
+            <td>{{ data.used_kg if data.used_kg is not none else '-' }}</td>
+            <td>{{ data.total_weight_produced if data.total_weight_produced is not none else '-' }}</td>
+            <td>
+              {% if data.session_id %}
+                {% if data.purpose == 'Block' %}
+                  <a href="{{ url_for('blocks.session_detail', session_id=data.session_id) }}"
+                    class="fw-bold text-primary text-decoration-underline"
+                    style="cursor:pointer;" title="View Block Session Detail">
+                    {{ data.total_items_produced }}
+                  </a>
+                {% elif data.purpose == 'Moulded' %}
+                  <a href="{{ url_for('moulded_cornice.session_detail', session_id=data.session_id) }}"
+                    class="fw-bold text-primary text-decoration-underline"
+                    style="cursor:pointer;" title="View Moulded Cornice Session Detail">
+                    {{ data.total_items_produced }}
+                  </a>
+                {% else %}
+                  {{ data.total_items_produced }}
+                {% endif %}
+              {% else %}
+                {{ data.total_items_produced if data.total_items_produced is not none else '-' }}
+              {% endif %}
+            </td>
+            <td class="{{ 'text-danger' if data.wasted_material > 0 else 'text-success' }}">
+              {{ data.wasted_material if data.wasted_material is not none else '-' }}
+            </td>
+            <td>{{ data.total_time_minutes if data.total_time_minutes is not none else '-' }}</td>
+            <td>{{ data.avg_time_per_item if data.avg_time_per_item is not none else '-' }}</td>
+            <td>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#viewMoreModal{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}"
+                data-kind="{{ data.purpose|lower }}"
+                data-id="{{ data.session_id or data.pre_expansion_id }}">
+                <i class="bi bi-search"></i> View More
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Responsive "View More" Modal for each row -->
+  {% for data in analytics_data %}
+  <div class="modal fade" id="viewMoreModal{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}" tabindex="-1" aria-labelledby="viewMoreLabel{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title" id="viewMoreLabel{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}">
+            Advanced Analytics: Batch {{ data.batch_no }}
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="max-height:80vh; overflow-y:auto;">
+          <div class="row g-4">
+            <!-- Left: Info and Bar -->
+            <div class="col-12 col-md-6 d-flex flex-column gap-3">
+              <h6>Production Breakdown</h6>
+              <ul class="mb-3">
+                <li><b>Operator:</b> {{ data.operator_name or '-' }}</li>
+                <li><b>Start Time:</b> {{ data.start_time or '-' }}</li>
+                <li><b>End Time:</b> {{ data.end_time or '-' }}</li>
+                <li><b>Material Code:</b> {{ data.material_code or '-' }}</li>
+              </ul>
+              <h6>Performance & Timing</h6>
+              {% if data.purpose == 'Block' %}
+                <ul>
+                  <li><b>Average Block Weight:</b> {{ data.avg_block_weight if data.avg_block_weight is not none else '-' }} kg</li>
+                  <li><b>Average Block Cycle Time:</b> {{ data.avg_block_time if data.avg_block_time is not none else '-' }} min</li>
+                  <li><b>Average Cut Time per Block:</b> {{ data.avg_cut_time_per_block if data.avg_cut_time_per_block is not none else '-' }} min</li>
+                  <li><b>Average Boxing Time per Block:</b> {{ data.avg_boxing_time_per_block if data.avg_boxing_time_per_block is not none else '-' }} min</li>
+                  <li><b>Average QC Rating (out of 10):</b> {{ data.avg_block_qc_rating if data.avg_block_qc_rating is not none else '-' }} / 10</li>
+                </ul>
+                <hr>
+                <h6>Cutting & QC Damage Analytics</h6>
+                <div class="chart-responsive">
+                  <canvas id="blockProfileChart{{ data.session_id or data.pre_expansion_id }}"></canvas>
+                </div>
+              {% elif data.purpose == 'Moulded' %}
+                <ul>
+                  <li><b>Average Cornices per Cycle:</b> {{ data.avg_cornices_per_cycle if data.avg_cornices_per_cycle is not none else '-' }}</li>
+                  <li><b>Average Cycle Time:</b> {{ data.avg_cycle_time if data.avg_cycle_time is not none else '-' }} min</li>
+                </ul>
+              {% endif %}
+            </div>
+            <!-- Right: Donuts and more -->
+            <div class="col-12 col-md-6 d-flex flex-column gap-4">
+
+  <!-- Top Donut with heading and legend on top -->
+            <div>
+              <h6 class="mb-2 text-center">Production: Total vs Wasted (kg)</h6>
+              <div class="chart-responsive position-relative">
+                <canvas id="wasteChart{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}"></canvas>
+              </div>
+            </div>
+
+            {% if data.purpose == 'Block' %}
+              <div>
+                <h6 class="mb-2 text-center">Comparison: Block Cycle, Cutting &amp; Boxing Avg Times (min)</h6>
+                <div class="chart-responsive position-relative">
+                  <canvas id="blockTimeComparisonChart{{ data.session_id or data.pre_expansion_id }}"></canvas>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if data.purpose == 'Block' and data.block_numbers and data.block_weights %}
+              <div class="chart-responsive">
+                <canvas id="blockWeightChart{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}"></canvas>
+              </div>
+            {% elif data.purpose == 'Moulded' and data.cornice_profiles and data.cornice_quantities %}
+              <div class="chart-responsive">
+                <canvas id="corniceProfileChart{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}"></canvas>
+              </div>
+            {% else %}
+              <div class="text-muted mt-3">No production chart data available for this session.</div>
+            {% endif %}
+
+          </div>
+          </div>
+          <hr>
+          <div class="text-muted small">
+            <b>Business Insight:</b>
+            {% if data.purpose == 'Block' %}
+              Review all damages (cutting, QC, boxing) vs produced for each block/profile in this batch.
+            {% elif data.purpose == 'Moulded' %}
+              Track cornice production per profile and optimize for the highest-yield lines.
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% elif form.is_submitted() %}
+    <div class="alert alert-warning mt-3 text-center">
+      No analytics data found for the selected criteria.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+var chartInstances = {};
+
+{% for data in analytics_data %}
+  // --- Waste Chart ---
+  (function() {
+    var canvasId = 'wasteChart{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}';
+    var ctx = document.getElementById(canvasId);
+    if (ctx) {
+      if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Produced', 'Wasted'],
+          datasets: [{
+            data: [{{ data.total_weight_produced or 0 }}, {{ data.wasted_material or 0 }}],
+            backgroundColor: ['#198754', '#dc3545']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        }
+      });
+    }
+  })();
+
+  // --- Time Comparison Donut for Block ---
+  {% if data.purpose == 'Block' %}
+  (function() {
+    var canvasId = 'blockTimeComparisonChart{{ data.session_id or data.pre_expansion_id }}';
+    var ctx = document.getElementById(canvasId);
+    var labels = {{ data.block_time_comparison_labels|default([])|tojson }};
+    var values = {{ data.block_time_comparison_values|default([])|tojson }};
+    if (ctx && labels.length && values.length) {
+      if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#3b82f6', '#f59e42', '#50c878'],
+          }]
+        },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },   // <-- CHANGE 'bottom' to 'top'
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || '';
+                var val = context.raw !== undefined ? context.raw : '';
+                return label + ': ' + val + ' min';
+              }
+            }
+          }
+        }
+      }
+      });
+    }
+  })();
+  {% endif %}
+
+  // --- Block Profile Damage Breakdown Chart WITH QC datalabels ---
+  {% if data.purpose == 'Block' %}
+  (function() {
+    var canvasId = 'blockProfileChart{{ data.session_id or data.pre_expansion_id }}';
+    var ctx = document.getElementById(canvasId);
+
+    var labels = {{ data.block_profile_xlabels|default([])|tojson }};
+    var produced = {{ data.block_produced|default([])|tojson }};
+    var cutDamaged = {{ data.block_cutting_damaged|default([])|tojson }};
+    var qcDamaged = {{ data.block_qc_damaged|default([])|tojson }};
+    var boxDamaged = {{ data.block_boxing_damaged|default([])|tojson }};
+    var qcRatings = {{ data.block_qc_ratings_per_block|default([])|tojson }};
+
+    if (ctx && labels.length) {
+      if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Produced",
+              backgroundColor: "#198754",
+              data: produced,
+              datalabels: {
+                anchor: 'end',
+                align: 'end',
+                font: { weight: 'bold' },
+                color: '#222',
+                formatter: function(value, context) {
+                  var idx = context.dataIndex;
+                  var qcr = qcRatings && qcRatings.length > idx ? qcRatings[idx] : null;
+                  if (qcr === null || qcr === undefined) return "–";
+                  return qcr.toFixed(2);
+                },
+                display: true
+              }
+            },
+            {
+              label: "Cut Damaged",
+              backgroundColor: "#ffc107",
+              data: cutDamaged,
+              datalabels: { display: false }
+            },
+            {
+              label: "QC Damaged",
+              backgroundColor: "#dc3545",
+              data: qcDamaged,
+              datalabels: { display: false }
+            },
+            {
+              label: "Boxing Damaged",
+              backgroundColor: "#6c757d",
+              data: boxDamaged,
+              datalabels: { display: false }
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            datalabels: { display: true },
+            tooltip: {
+              callbacks: {
+                afterBody: function(context) {
+                  var idx = context[0].dataIndex;
+                  var qcr = qcRatings && qcRatings.length > idx ? qcRatings[idx] : null;
+                  if (qcr !== null && qcr !== undefined) {
+                    return "QC Rating: " + qcr.toFixed(2) + " / 10";
+                  }
+                }
+              }
+            }
+          },
+          scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+  })();
+  {% elif data.purpose == 'Moulded' and data.cornice_profiles and data.cornice_quantities %}
+  // --- Cornice Production Chart ---
+  (function() {
+    var canvasId = 'corniceProfileChart{{ data.purpose|lower }}{{ data.session_id or data.pre_expansion_id }}';
+    var ctx = document.getElementById(canvasId);
+    if (ctx) {
+      if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: {{ data.cornice_profiles|default([])|tojson }},
+          datasets: [{
+            label: 'Cornices Produced',
+            data: {{ data.cornice_quantities|default([])|tojson }},
+            backgroundColor: '#0d6efd'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+  })();
+  {% endif %}
+{% endfor %}
+</script>
+{% endblock %}

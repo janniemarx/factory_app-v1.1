@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+{% block content %}
+{% macro hh(x) -%} {{ (x or 0)|round(2) }} {%- endmacro %}
+
+<style>
+  /* Compact, tabular layout */
+  .ot-table { --muted:#6c757d; }
+  .ot-table thead th { white-space: nowrap; }
+  .ot-table td, .ot-table th { vertical-align: middle; padding-top:.45rem; padding-bottom:.45rem; }
+  .tabnums { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+
+  /* Inputs */
+  .ot-hours { width: 7.5rem; }    /* hours input */
+  .ot-decision { width: 8.5rem; } /* select */
+  .ot-reason { min-width: 16rem; }/* textarea */
+  .ot-reason textarea { min-height: calc(1.6rem + 2px); }
+
+  .badge-ot { letter-spacing:.5px; font-weight:600; }
+  .sticky-actions {
+    position: sticky; bottom: 0; z-index: 1010; background:#fff;
+    border-top:1px solid rgba(0,0,0,.075); padding:.75rem 0; margin-top:.5rem;
+  }
+
+  /* Friday calc helper */
+  .calc-box {
+    background:#f8f9fa; border:1px dashed rgba(0,0,0,.1); border-radius:.5rem;
+    padding:.5rem .75rem; margin-top:.35rem; font-size:.875rem;
+  }
+  .calc-box .num { font-weight:600; }
+</style>
+
+<div class="container-md">
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h3 class="mb-0">Review Overtime</h3>
+          <div class="text-muted small">
+            {{ op.full_name or op.username }} • {{ start_date }} → {{ end_date }}
+          </div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ url_for('attendance.overtime_queue',
+                            start_date=start_date.isoformat(),
+                            end_date=end_date.isoformat(),
+                            room_number=room_number) }}">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      </div>
+
+      <form method="post" id="bulk-ot-form">
+        {{ form.hidden_tag() }}
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle ot-table">
+            <colgroup>
+              <col style="width:12%;">  {# Date #}
+              <col style="width:7%;">   {# In #}
+              <col style="width:7%;">   {# Out #}
+              <col style="width:8%;">   {# Worked #}
+              <col style="width:9%;">   {# Daily OT #}
+              <col style="width:6%;">   {# Type #}
+              <col style="width:8%;">   {# Proposed #}
+              <col style="width:12%;">  {# Hours edit #}
+              <col style="width:10%;">  {# Decision #}
+              <col>                     {# Reason / Notes #}
+            </colgroup>
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th class="text-center">In</th>
+                <th class="text-center">Out</th>
+                <th class="text-end">Worked (h)</th>
+                <th class="text-end">Daily OT (h)</th>
+                <th>Type</th>
+                <th class="text-end">Proposed (h)</th>
+                <th class="text-end">Hours (edit)</th>
+                <th>Decision</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+
+              {# ======= Editable requests (non-proxy) ======= #}
+              {% for row in rows if row.mode == 'request' %}
+                {% set r = row.req %}
+                <tr class="ot-row">
+                  <td>
+                    <input type="hidden" name="request_id" value="{{ r.id }}">
+                    <input type="hidden" name="row_day" value="{{ row.day.isoformat() }}">
+                    <div class="fw-semibold">{{ r.day }}</div>
+                    <div class="muted small">{{ r.day.strftime('%A') }}</div>
+                  </td>
+
+                  <td class="text-center tabnums">{{ row.ui_in.strftime('%H:%M') if row.ui_in else '—' }}</td>
+                  <td class="text-center tabnums">{{ row.ui_out.strftime('%H:%M') if row.ui_out else '—' }}</td>
+                  <td class="text-end tabnums">{{ hh(row.worked_hours) }}</td>
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+
+                  <td>
+                    {% set t = (r.ot_type or '').lower() %}
+                    <span class="badge text-bg-secondary badge-ot"
+                          {% if t=='ot1' %}style="background:#6c757d;"{% endif %}>{{ t|upper }}</span>
+                  </td>
+
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+
+                  <td class="text-end">
+                    <input class="form-control form-control-sm text-end ot-hours hours-input tabnums"
+                           type="number" step="0.01" min="0" max="24"
+                           inputmode="decimal" name="hours"
+                           value="{{ hh(row.edit_default_hours or row.daily_ot_hours) }}"
+                           data-default-hours="{{ hh(row.edit_default_hours or row.daily_ot_hours) }}"
+                           required>
+                    <div class="invalid-feedback">Enter hours &gt; 0 when approving.</div>
+                  </td>
+
+                  <td>
+                    <select class="form-select form-select-sm ot-decision decision-select" name="decision" required>
+                      <option value="" disabled selected>Choose…</option>
+                      <option value="approved">Approve</option>
+                      <option value="rejected">Reject</option>
+                    </select>
+                    <div class="invalid-feedback">Select a decision.</div>
+                  </td>
+
+                  <td class="ot-reason">
+                    <textarea class="form-control form-control-sm autosize reason-input"
+                              rows="1" name="reason" maxlength="500"
+                              placeholder="Why approve/reject?" required>{{ r.reason or '' }}</textarea>
+                    <div class="invalid-feedback">Reason is required.</div>
+                  </td>
+                </tr>
+              {% endfor %}
+
+              {# ======= Night proxy rows (Mon–Thu daily session + Friday remainder) ======= #}
+              {% for row in rows if row.mode == 'proxy' %}
+                <tr class="ot-row table-light">
+                  <td>
+                    <input type="hidden" name="request_id" value="{{ row.proxy_request_id }}">
+                    <input type="hidden" name="row_day" value="{{ row.day.isoformat() }}">
+                    <div class="fw-semibold">{{ row.day }}</div>
+                    <div class="muted small">{{ row.day.strftime('%A') }}</div>
+                  </td>
+
+                  <td class="text-center tabnums">{{ row.ui_in.strftime('%H:%M') if row.ui_in else '—' }}</td>
+                  <td class="text-center tabnums">{{ row.ui_out.strftime('%H:%M') if row.ui_out else '—' }}</td>
+                  <td class="text-end tabnums">{{ hh(row.worked_hours) }}</td>
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+
+                  <td><span class="badge text-bg-secondary badge-ot">OT1</span></td>
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+
+                  <td class="text-end">
+                    <input class="form-control form-control-sm text-end ot-hours hours-input tabnums"
+                           type="number" step="0.01" min="0" max="24"
+                           inputmode="decimal" name="hours"
+                           value="{{ hh(row.daily_ot_hours) }}"
+                           data-default-hours="{{ hh(row.daily_ot_hours) }}" required>
+                    <div class="invalid-feedback">Enter hours &gt; 0 when approving.</div>
+                  </td>
+
+                  <td>
+                    <select class="form-select form-select-sm ot-decision decision-select" name="decision" required>
+                      <option value="" disabled selected>Choose…</option>
+                      <option value="approved">Approve</option>
+                      <option value="rejected">Reject</option>
+                    </select>
+                    <div class="invalid-feedback">Select a decision.</div>
+                  </td>
+
+                  <td class="ot-reason">
+                    <textarea class="form-control form-control-sm autosize reason-input"
+                              rows="1" name="reason" maxlength="500"
+                              placeholder="Why approve/reject?" required></textarea>
+
+                    {% if row.is_friday_remainder %}
+                      <div class="calc-box">
+                        <div class="small">After filling <span class="num">{{ '%.2f'|format(row.calc_unpaid_fill_hours or 8.0) }}h</span> of unpaid Friday with Mon–Thu overtime:</div>
+                        <div class="small">
+                          Sum of Mon–Thu daily OT = <span class="num">{{ '%.2f'|format(row.calc_sum_daily_ot or 0) }}h</span><br>
+                          Remaining overtime to pay = <span class="num">{{ '%.2f'|format(row.calc_remainder_after_fill or row.daily_ot_hours) }}h</span>
+                        </div>
+                        <div class="form-check mt-2">
+                          <input class="form-check-input" type="checkbox"
+                                 id="unpaid-{{ row.day.isoformat() }}"
+                                 name="mark_unpaid_fri" value="{{ row.day.isoformat() }}">
+                          <label class="form-check-label" for="unpaid-{{ row.day.isoformat() }}">
+                            Mark this Friday as <strong>Unpaid</strong> (0h)
+                          </label>
+                        </div>
+                      </div>
+                    {% else %}
+                      <div class="form-text">{{ row.note }}</div>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+
+              {# ======= Fully capped info rows ======= #}
+              {% for row in rows if row.mode == 'capped' %}
+                <tr class="table-light"{% if row.is_friday_remainder %} data-friday-remainder="{{ '%.2f'|format(row.calc_remainder_after_fill or row.daily_ot_hours or 0) }}"{% endif %}>
+                  <td>
+                    <div class="fw-semibold">{{ row.day }}</div>
+                    <div class="muted small">{{ row.day.strftime('%A') }}</div>
+                  </td>
+                  <td class="text-center tabnums">{{ row.ui_in.strftime('%H:%M') if row.ui_in else '—' }}</td>
+                  <td class="text-center tabnums">{{ row.ui_out.strftime('%H:%M') if row.ui_out else '—' }}</td>
+                  <td class="text-end tabnums">{{ hh(row.worked_hours) }}</td>
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+                  <td><span class="badge text-bg-secondary badge-ot">OT1</span></td>
+                  <td class="text-end tabnums">{{ hh(row.daily_ot_hours) }}</td>
+                  <td class="text-muted">—</td>
+                  <td class="text-muted">—</td>
+                  <td class="text-muted">
+                    {{ row.note }}
+                    {% if row.is_friday_remainder %}
+                      <div class="calc-box mt-1">
+                        <div class="small">
+                          Sum Mon–Thu OT: <span class="num">{{ '%.2f'|format(row.calc_sum_daily_ot or 0) }}h</span> −
+                          Friday fill: <span class="num">{{ '%.2f'|format(row.calc_unpaid_fill_hours or 8.0) }}h</span> =
+                          Remainder: <span class="num">{{ '%.2f'|format(row.calc_remainder_after_fill or row.daily_ot_hours) }}h</span>
+                        </div>
+                      </div>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+
+              {# ======= Missing expected night ======= #}
+              {% for row in rows if row.mode == 'missing' %}
+                <tr class="table-warning">
+                  <td>
+                    <div class="fw-semibold">{{ row.day }}</div>
+                    <div class="muted small">{{ row.day.strftime('%A') }}</div>
+                  </td>
+                  <td class="text-center">—</td>
+                  <td class="text-center">—</td>
+                  <td class="text-end">—</td>
+                  <td class="text-end tabnums">{{ hh(row.missing_hours) }}</td>
+                  <td><span class="badge text-bg-secondary badge-ot">OT1</span></td>
+                  <td class="text-end tabnums">{{ hh(row.missing_hours) }}</td>
+                  <td class="text-muted">—</td>
+                  <td class="text-muted">—</td>
+                  <td>
+                    Missing Friday night (18:00–24:00).
+                    <a class="btn btn-sm btn-outline-secondary ms-1" href="{{ row.exception_url }}">Log Exception</a>
+                  </td>
+                </tr>
+              {% endfor %}
+
+              {% if not rows %}
+                <tr><td colspan="10" class="text-center text-muted">No pending overtime for this employee.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+
+        <div class="sticky-actions">
+          <div class="d-flex gap-2 justify-content-end">
+            {{ form.submit(class="btn btn-primary", id="submit-btn", disabled=(not reqs)) }}
+            <a class="btn btn-light"
+               href="{{ url_for('attendance.overtime_queue',
+                                start_date=start_date.isoformat(),
+                                end_date=end_date.isoformat(),
+                                room_number=room_number) }}">Cancel</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Autosize single-line reasons
+  (function() {
+    const autosize = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
+    document.querySelectorAll('textarea.autosize').forEach(t => {
+      autosize(t); t.addEventListener('input', () => autosize(t));
+    });
+  })();
+
+  // Toggle & validate
+  (function() {
+    const form = document.getElementById('bulk-ot-form');
+    const rows = Array.from(document.querySelectorAll('.ot-row'));
+    // Detect Friday no-night info boxes
+    const fridayInfoRows = Array.from(document.querySelectorAll('tr'))
+      .filter(tr => tr.querySelector('td:first-child .muted')?.textContent?.trim() === 'Friday' && tr.querySelector('.calc-box'));
+
+    rows.forEach(row => {
+      const decision = row.querySelector('.decision-select');
+      const hours = row.querySelector('.hours-input');
+
+      const setForDecision = () => {
+        if (!decision.value) { hours.readOnly = false; hours.classList.remove('bg-light'); return; }
+
+        if (decision.value === 'rejected') {
+          hours.readOnly = true;
+          hours.value = '0.00';
+          hours.classList.add('bg-light');
+          hours.setCustomValidity('');
+        } else {
+          // approved
+          hours.readOnly = false;
+          hours.classList.remove('bg-light');
+          if (!hours.value || parseFloat(hours.value) === 0) {
+            const def = parseFloat(hours.dataset.defaultHours || '0') || 0;
+            hours.value = def > 0 ? def.toFixed(2) : '';
+          }
+        }
+      };
+      if (decision) {
+        decision.addEventListener('change', setForDecision);
+        setForDecision();
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      let firstInvalid = null;
+      rows.forEach(row => {
+        const decision = row.querySelector('.decision-select');
+        const hours = row.querySelector('.hours-input');
+        const reason = row.querySelector('.reason-input');
+        [decision, hours, reason].forEach(el => { if (el) { el.classList.remove('is-invalid'); el.setCustomValidity(''); } });
+
+        const dVal = decision ? decision.value : '';
+        const rVal = reason ? (reason.value || '').trim() : '';
+        const hVal = hours ? hours.value : '';
+
+        if (!dVal) { decision.classList.add('is-invalid'); if (!firstInvalid) firstInvalid = decision; }
+        if (!rVal) { reason.classList.add('is-invalid'); if (!firstInvalid) firstInvalid = reason; }
+
+        if (dVal === 'approved') {
+          const n = parseFloat(hVal);
+          if (!hVal || isNaN(n) || n <= 0) {
+            hours.classList.add('is-invalid');
+            hours.setCustomValidity('Enter hours > 0 when approving.');
+            if (!firstInvalid) firstInvalid = hours;
+          }
+        } else if (dVal === 'rejected') {
+          if (hours.readOnly && (!hVal || isNaN(parseFloat(hVal)))) { hours.value = '0.00'; }
+        }
+      });
+
+      if (firstInvalid) {
+        e.preventDefault();
+        firstInvalid.focus({ preventScroll: true });
+        firstInvalid.closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        form.reportValidity();
+        return;
+      }
+
+      // If we have a Friday No Night info row, confirm the weekly fill message
+      if (fridayInfoRows.length > 0) {
+        let remainder = 'the remainder';
+        try {
+          const remAttr = fridayInfoRows[0].getAttribute('data-friday-remainder');
+          if (remAttr) remainder = parseFloat(remAttr).toFixed(2) + 'h';
+        } catch (_) {}
+        const ok = confirm(
+          'No Night shift for Friday: We will fill the 40h week using Mon–Thu overtime and post the remaining ' + remainder + ' as overtime.\n\nDo you want to continue?'
+        );
+        if (!ok) {
+          e.preventDefault();
+          return;
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

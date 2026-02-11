@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+{% macro dhms(seconds) -%}
+  {%- set s = (seconds or 0)|int -%}
+  {%- set h = (s // 3600) -%}
+  {%- set m = ((s % 3600) // 60) -%}
+  {%- set ss = (s % 60) -%}
+  {{ "%02d:%02d:%02d"|format(h, m, ss) }}
+{%- endmacro %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-10">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="mb-0">Review Job #{{ job.id }}</h2>
+            <div class="text-muted small">{{ job.title }}</div>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('maintenance.jobs_review_queue') }}"><i class="bi bi-arrow-left"></i> Back</a>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="border rounded p-3 mb-3">
+              <div class="fw-semibold mb-1">Details</div>
+              <div class="small text-muted mb-2">
+                Location: <span class="text-body">{{ job.location or '—' }}</span> ·
+                Asset: <span class="text-body">{{ job.asset_code or '—' }}</span> ·
+                Priority: <span class="text-body">{{ job.priority|capitalize }}</span>
+              </div>
+              <div>{{ job.description or '—' }}</div>
+            </div>
+
+            <div class="border rounded p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Sessions</h5>
+                <div class="small text-muted">Total time: <span class="text-body">{{ dhms(job.total_work_seconds) }}</span></div>
+              </div>
+
+              <div class="accordion" id="sessAcc">
+                {% for s in job.sessions %}
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="h{{ s.id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c{{ s.id }}">
+                      Session #{{ s.id }} · {{ s.technician.full_name if s.technician else '—' }}
+                      <span class="ms-2 text-muted small">({{ dhms(s.total_work_seconds) }})</span>
+                    </button>
+                  </h2>
+                  <div id="c{{ s.id }}" class="accordion-collapse collapse" data-bs-parent="#sessAcc">
+                    <div class="accordion-body">
+                      <div class="small mb-2 text-muted">
+                        Started: <span class="text-body">{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at else '—' }}</span>
+                        · Ended: <span class="text-body">{{ s.ended_at.strftime('%Y-%m-%d %H:%M') if s.ended_at else '—' }}</span>
+                      </div>
+                      <div class="fw-semibold">Steps</div>
+                      <ol class="mb-0">
+                        {% for st in s.steps|sort(attribute='timestamp') %}
+                          <li class="mb-1">
+                            <span class="text-muted small">{{ st.timestamp.strftime('%Y-%m-%d %H:%M') }} — </span>{{ st.description }}
+                          </li>
+                        {% else %}
+                          <li class="text-muted">No steps recorded.</li>
+                        {% endfor %}
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+                {% else %}
+                  <div class="text-muted">No sessions.</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="border rounded p-3">
+              <h5 class="mb-3">Decision</h5>
+              <form method="post">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                  <label class="form-label">Outcome</label>
+                  {{ form.decision(class="form-select") }}
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Notes</label>
+                  {{ form.notes(class="form-control", rows="5", placeholder="Comments, risks, follow-ups, parts used/left...") }}
+                </div>
+                {{ form.submit(class="btn btn-primary w-100") }}
+              </form>
+              <div class="small text-muted mt-3">
+                Approving will close the job. “Request rework” returns it to technicians.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

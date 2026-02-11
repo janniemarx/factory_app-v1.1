@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-3 text-center">QC Detail: Block {{ record.block_number }}</h2>
+        {% if record.quality_control %}
+        <ul class="list-group mb-3">
+          <li class="list-group-item"><b>Profile:</b> {{ record.profile_code }}</li>
+          <li class="list-group-item"><b>Cornices Cut:</b> {{ record.cornices_produced }}</li>
+          <li class="list-group-item"><b>QC Count:</b> {{ record.quality_control.cornices_count_qc }}</li>
+          <li class="list-group-item"><b>Bad Cornices:</b> {{ record.quality_control.bad_cornices_count }}</li>
+          <li class="list-group-item"><b>Good Cornices:</b> {{ record.quality_control.good_cornices_count }}</li>
+          <li class="list-group-item"><b>QC By:</b> {{ record.quality_control.qc_operator.full_name or record.quality_control.qc_operator.username }}</li>
+          <li class="list-group-item"><b>QC Date:</b> {{ record.quality_control.timestamp.strftime('%Y-%m-%d %H:%M') }}</li>
+          <li class="list-group-item"><b>Areo Effect:</b> {{ record.quality_control.rated_areo_effect }}</li>
+          <li class="list-group-item"><b>EPS Binding:</b> {{ record.quality_control.rated_eps_binding }}</li>
+          <li class="list-group-item"><b>Wetspots:</b> {{ record.quality_control.rated_wetspots }}</li>
+          <li class="list-group-item"><b>Dryness:</b> {{ record.quality_control.rated_dryness }}</li>
+          <li class="list-group-item"><b>Lines:</b> {{ record.quality_control.rated_lines }}</li>
+        </ul>
+        {% else %}
+        <div class="alert alert-warning">No QC record found for this batch.</div>
+        {% endif %}
+        <a href="{{ url_for('qc.ready_for_boxing') }}" class="btn btn-link">Back</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

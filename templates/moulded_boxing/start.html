@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+  <div class="col-lg-8 mx-auto">
+    <div class="card shadow p-4">
+      <h3 class="mb-3">Start Moulded Boxing</h3>
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.moulded_session_id.label(class="form-label") }}
+          {{ form.moulded_session_id(class="form-select", required=True) }}
+        </div>
+        {{ form.submit(class="btn btn-success w-100") }}
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

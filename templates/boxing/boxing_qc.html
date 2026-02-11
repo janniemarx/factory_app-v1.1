@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-3 text-center">Boxing Quality Control</h2>
+        {# Show total cornices and damage if passed from route #}
+        <div class="mb-3">
+          <b>Total Cornices Boxed:</b> {{ total_cornices or '-' }}<br>
+          {% if damage is not none %}
+            <b>Damage During Boxing:</b>
+            <span class="fw-bold {% if damage > 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ damage }}
+            </span>
+          {% endif %}
+        </div>
+        <form method="post" autocomplete="off">
+          {{ qc_form.hidden_tag() }}
+          <div class="mb-3">
+            {{ qc_form.boxes_checked.label(class="form-label") }}
+            {{ qc_form.boxes_checked(class="form-control", required=True) }}
+          </div>
+          <div class="mb-3">
+            {{ qc_form.notes.label(class="form-label") }}
+            {{ qc_form.notes(class="form-control", rows="2") }}
+          </div>
+          <div class="mb-3">
+            {{ qc_form.actions_taken.label(class="form-label") }}
+            {{ qc_form.actions_taken(class="form-control", rows="2") }}
+          </div>
+          <button type="submit" class="btn btn-success btn-lg w-100">
+            <i class="bi bi-check-circle"></i> QC Complete & Mark as Stock Ready
+          </button>
+        </form>
+        <a href="{{ url_for('boxing.view_sessions') }}" class="btn btn-link w-100 mt-3">Back to Sessions</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

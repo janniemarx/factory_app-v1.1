@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2 class="mb-3 text-center">Moulded Cornice Session Detail</h2>
+  <div class="row mb-4">
+    <div class="col-md-7">
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white"><b>Session Information</b></div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item"><b>Batch:</b>
+            {% if session.pre_expansion %}
+            <a href="{{ url_for('pre_expansion.view_pre_expansion_detail', pre_expansion_id=session.pre_expansion.id) }}">
+              {{ session.pre_expansion.batch_no }}
+            </a>
+            {% else %}-{% endif %}
+          </li>
+          <li class="list-group-item">
+            <b>Machine:</b>
+            {% if session.machine %}{{ session.machine.name }}{% else %}-{% endif %}
+          </li>
+          <li class="list-group-item"><b>Mould:</b> {{ session.mould_number }}</li>
+          <li class="list-group-item"><b>Operator:</b>
+            {% if session.operator %}{{ session.operator.full_name or session.operator.username }}{% else %}Unknown{% endif %}
+          </li>
+          <li class="list-group-item"><b>Status:</b> {{ session.status|capitalize }}</li>
+          <li class="list-group-item"><b>Started at:</b> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</li>
+          {% if session.end_time %}
+          <li class="list-group-item"><b>Ended at:</b> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</li>
+          {% endif %}
+        </ul>
+      </div>
+      <div class="card mb-4">
+        <div class="card-header"><b>Mould Configuration</b></div>
+        <ul class="list-group list-group-flush">
+          {% for cfg in configs %}
+          <li class="list-group-item"><b>Line {{ loop.index }}:</b> {{ cfg.profile_code }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="col-md-5">
+      <div class="card shadow p-3">
+        <h5>Production Cycles</h5>
+        <table class="table table-striped table-sm mb-3">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cycles</th>
+              <th>Total Cornices</th>
+              <th>Total Weight (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if session.status == 'completed' and session.cycles > 0 %}
+              <tr>
+                <td>1</td>
+                <td>{{ session.cycles }}</td>
+                <td>{{ session.cycles * configs|length }}</td>
+                <td>{{ session.actual_produced_kg or '0.00' }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted">No cycles recorded yet.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+        {% if session.status != 'completed' %}
+          {% if error_msg %}
+            <div class="alert alert-danger">{{ error_msg }}</div>
+          {% endif %}
+          <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#finishSessionModal">
+            Finish Production Session
+          </button>
+        {% else %}
+          <div class="alert alert-success">Session is completed.</div>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('moulded_cornice.view_sessions') }}" class="btn btn-link w-100 mt-2">Back to Sessions</a>
+    </div>
+  </div>
+
+  {% if session.status == 'completed' %}
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card mb-4">
+        <div class="card-header"><b>Production Summary</b></div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item"><b>Material Used (actual beads produced or planned):</b> {{ session.planned_kg or 0 }} kg</li>
+          <li class="list-group-item"><b>Actual Cornices Produced (kg):</b> {{ session.actual_produced_kg or 0 }} kg</li>
+          <li class="list-group-item"><b>Difference (Loss):</b> {{ session.loss_kg or 0 }} kg</li>
+        </ul>
+        <table class="table table-sm mt-2">
+          <thead>
+            <tr>
+              <th>Profile</th>
+              <th>Quantity</th>
+              <th>Total Weight (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for summary in session.production_summaries %}
+            <tr>
+              <td>{{ summary.profile_code }}</td>
+              <td>{{ summary.quantity }}</td>
+              <td>{{ summary.total_weight_kg }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Finish Session Modal -->
+<div class="modal fade" id="finishSessionModal" tabindex="-1" aria-labelledby="finishSessionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="finishSessionForm">
+        {{ finish_form.hidden_tag() }}
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="finishSessionModalLabel">Finish Production Session</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label for="total_cycles" class="form-label"><b>Total Cycles Produced</b></label>
+          <input type="number" name="total_cycles" id="total_cycles" class="form-control" min="1" required placeholder="Enter total number of cycles for this session">
+          <div class="form-text mt-1">Enter the total number of mould cycles done for this session.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" name="finish_session" class="btn btn-danger w-100">Finish and Save Session</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-11">
+      <div class="card shadow p-4 mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="mb-0">Boxing Sessions</h2>
+          <a href="{{ url_for('boxing.start_boxing_session') }}" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-circle"></i> Start New Boxing
+          </a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Profile</th>
+                <th>Block</th>
+                <th>Operator</th>
+                <th>Status</th>
+                <th>Boxes Packed</th>
+                <th>Leftovers</th>
+                <th>Started</th>
+                <th>Ended</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in sessions %}
+              <tr>
+                <td>{{ s.id }}</td>
+                <td>{{ s.cutting_production.profile_code }}</td>
+                <td>{{ s.cutting_production.block_number }}</td>
+                <td>{{ s.operator.full_name or s.operator.username }}</td>
+                <td>
+                  {% if s.status == 'stock_ready' %}
+                    <span class="badge bg-success">Done</span>
+                  {% elif s.status == 'completed' %}
+                    <span class="badge bg-secondary">Completed</span>
+                  {% elif s.status == 'pending_qc' %}
+                    <span class="badge bg-info text-dark">Pending QC</span>
+                  {% elif s.status == 'paused' %}
+                    <span class="badge text-dark" style="background-color:#ffa726;">Paused</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">Active</span>
+                  {% endif %}
+                </td>
+                <td>{{ s.boxes_packed or '-' }}</td>
+                <td>{{ s.leftovers or '-' }}</td>
+                <td>{{ s.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else '-' }}</td>
+                <td>
+                  <a href="{{ url_for('boxing.session_detail', session_id=s.id) }}" class="btn btn-outline-primary btn-sm">
+                    View
+                  </a>
+                  {% if s.status == 'pending_qc' %}
+                  <a href="{{ url_for('boxing.boxing_qc', session_id=s.id) }}" class="btn btn-outline-success btn-sm ms-2">
+                    QC
+                  </a>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="10" class="text-center text-muted">No boxing sessions found.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

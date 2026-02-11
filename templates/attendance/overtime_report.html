@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block content %}
+{% macro hh(x) -%}
+  {%- if x is string -%}{{ x }}{%- else -%}{{ ('%.2f' % (x or 0)) }}{%- endif -%}
+{%- endmacro %}
+
+<style>
+  .tabnums{ font-variant-numeric: tabular-nums; }
+  .sticky-actions{ position:sticky; bottom:0; background:#fff; z-index:100; padding:.5rem 0; }
+  .ns-badge{ display:inline-block; padding:0 .35rem; border-radius:.25rem; background:#e7f4ea; border:1px solid #cfe9d6; }
+  .night-row{ background:#f8fff6; }
+
+  /* Table: keep columns aligned */
+  .ot-table{ table-layout: fixed; min-width: 1200px; }
+  .ot-table th, .ot-table td{ vertical-align: middle; padding:.45rem .5rem; white-space: nowrap; }
+  .ot-table td.notes{ white-space: normal; }
+  .ot-table .sep-r{ border-right:2px solid var(--bs-border-color); }
+
+  /* Column widths (via <colgroup>) */
+  .col-code{  width: 90px; }
+  .col-name{  width: 220px; }
+  .col-small{ width: 72px; }
+  .col-total{ width: 90px; }
+  .col-notes{ width: 280px; }
+
+  /* Buttons: align with form controls */
+  .btn-form{
+    display:flex; align-items:center; justify-content:center; gap:.5rem;
+    height:calc(1.5em + .75rem + 2px); padding-inline:.9rem;
+  }
+  .btn-form i{
+    display:inline-grid; place-items:center;
+    width:1.75rem; height:1.75rem; border-radius:.4rem;
+    background:rgba(255,255,255,.2);
+  }
+  .actions-stack{ display:flex; gap:.5rem; }
+  .actions-stack > *{ flex:1 1 0; }
+
+  /* Mobile: stack actions */
+  @media (max-width: 767.98px){
+    .actions-stack{ flex-direction: column; }
+  }
+
+  /* Keep actions row aligned with labeled inputs */
+  .placeholder-label{ visibility:hidden; height:calc(1rem + .5rem); display:block; }
+</style>
+
+<div class="container py-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h3 class="mb-0"><i class="bi bi-clipboard2-data me-2"></i>Overtime Report</h3>
+      {% if filters_applied and start_date and end_date %}
+        <div class="text-muted small">{{ start_date }} → {{ end_date }}</div>
+      {% endif %}
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.dashboard') }}">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+
+  <form method="get" class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-3">
+          <label class="form-label">From (Monday)</label>
+          <input type="date" class="form-control" name="start_date"
+                 value="{{ start_date.isoformat() if start_date else '' }}">
+          <div class="form-text">Automatically snaps to Monday.</div>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <label class="form-label">To (Saturday)</label>
+          <input type="date" class="form-control" name="end_date"
+                 value="{{ end_date.isoformat() if end_date else '' }}">
+          <div class="form-text">Automatically snaps to Saturday.</div>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <label class="form-label">Room</label>
+          <select class="form-select" name="room_number">
+            {% for val, label in room_choices %}
+              <option value="{{ val }}" {% if room_value==val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <label class="form-label placeholder-label">Actions</label>
+          <div class="actions-stack">
+            <button class="btn btn-primary btn-form" type="submit" title="Apply filters">
+              <i class="bi bi-funnel"></i><span>Generate</span>
+            </button>
+
+            {% set can_export = filters_applied and start_date and end_date %}
+            {% if can_export and not block_reason %}
+              <a class="btn btn-success btn-form"
+                 href="{{ url_for('attendance.overtime_report_export',
+                                  start_date=start_date.isoformat(),
+                                  end_date=end_date.isoformat(),
+                                  room_number=room_value) }}">
+                <i class="bi bi-download"></i><span>Export&nbsp;Excel</span>
+              </a>
+            {% else %}
+              <button type="button" class="btn btn-success btn-form" disabled title="Resolve exceptions/pending first or apply filters">
+                <i class="bi bi-download"></i><span>Export&nbsp;Excel</span>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      {% if filters_applied and block_reason %}
+        <div class="alert alert-warning d-flex align-items-center justify-content-between" role="alert">
+          <div>
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            {{ block_reason }}
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('attendance.exceptions_list', start_date=start_date.isoformat(), end_date=end_date.isoformat(), room_number=room_value) }}">
+              Handle Exceptions
+            </a>
+            <a class="btn btn-sm btn-outline-warning"
+               href="{{ url_for('attendance.overtime_queue', start_date=start_date.isoformat(), end_date=end_date.isoformat(), room_number=room_value) }}">
+              Review Pending OT
+            </a>
+          </div>
+        </div>
+      {% endif %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover ot-table align-middle">
+          <colgroup>
+            <col class="col-code">
+            <col class="col-name">
+            <col class="col-small"><col class="col-small">           <!-- Lead FRI/SAT -->
+            <col class="col-small"><col class="col-small sep-r">     <!-- Mon -->
+            <col class="col-small"><col class="col-small sep-r">     <!-- Tue -->
+            <col class="col-small"><col class="col-small sep-r">     <!-- Wed -->
+            <col class="col-small"><col class="col-small sep-r">     <!-- Thur -->
+            <col class="col-small"><col class="col-small sep-r">     <!-- Fri -->
+            <col class="col-total"><col class="col-total"><col class="col-total">
+            <col class="col-notes">
+          </colgroup>
+
+          <thead class="table-light">
+            <tr>
+              <th scope="col" rowspan="2">Code</th>
+              <th scope="col" rowspan="2">Name</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Lead</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Mon</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Tue</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Wed</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Thur</th>
+              <th scope="colgroup" colspan="2" class="text-center sep-r">Fri</th>
+              <th scope="col" rowspan="2" class="text-end">Total N</th>
+              <th scope="col" rowspan="2" class="text-end">Total O</th>
+              <th scope="col" rowspan="2" class="text-end">Night&nbsp;Shift</th>
+              <th scope="col" rowspan="2">Notes</th>
+            </tr>
+            <tr>
+              <th class="text-center">FRI</th>
+              <th class="text-center sep-r">SAT</th>
+              <th class="text-center">Base</th><th class="text-center sep-r">OVER</th>
+              <th class="text-center">Base</th><th class="text-center sep-r">OVER</th>
+              <th class="text-center">Base</th><th class="text-center sep-r">OVER</th>
+              <th class="text-center">Base</th><th class="text-center sep-r">OVER</th>
+              <th class="text-center">Base</th><th class="text-center sep-r">Over Fri.</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for r in rows %}
+              <tr class="{% if r.is_night %}night-row{% endif %}">
+                <td class="tabnums">{{ r.code }}</td>
+                <td>{{ r.name }}</td>
+
+                <td class="text-center text-muted">—</td>
+                <td class="text-center text-muted sep-r">—</td>
+
+                <td class="text-center tabnums">
+                  {% if r.mon_base is string %}<span class="ns-badge">{{ r.mon_base }}</span>{% else %}{{ hh(r.mon_base) }}{% endif %}
+                </td>
+                <td class="text-center tabnums sep-r">{{ hh(r.mon_over) }}</td>
+
+                <td class="text-center tabnums">
+                  {% if r.tue_base is string %}<span class="ns-badge">{{ r.tue_base }}</span>{% else %}{{ hh(r.tue_base) }}{% endif %}
+                </td>
+                <td class="text-center tabnums sep-r">{{ hh(r.tue_over) }}</td>
+
+                <td class="text-center tabnums">
+                  {% if r.wed_base is string %}<span class="ns-badge">{{ r.wed_base }}</span>{% else %}{{ hh(r.wed_base) }}{% endif %}
+                </td>
+                <td class="text-center tabnums sep-r">{{ hh(r.wed_over) }}</td>
+
+                <td class="text-center tabnums">
+                  {% if r.thu_base is string %}<span class="ns-badge">{{ r.thu_base }}</span>{% else %}{{ hh(r.thu_base) }}{% endif %}
+                </td>
+                <td class="text-center tabnums sep-r">{{ hh(r.thu_over) }}</td>
+
+                <td class="text-center tabnums">
+                  {% if r.fri_base is string %}<span class="ns-badge">{{ r.fri_base }}</span>{% else %}{{ hh(r.fri_base) }}{% endif %}
+                </td>
+                <td class="text-center tabnums sep-r">{{ hh(r.over_fri) }}</td>
+
+                <td class="text-end tabnums">{{ hh(r.total_n) }}</td>
+                <td class="text-end tabnums">{{ hh(r.total_o) }}</td>
+                <td class="text-end tabnums">{% if r.is_night %}{{ hh(r.night_shift) }}{% else %}—{% endif %}</td>
+                <td class="notes">{{ r.notes or '' }}</td>
+              </tr>
+            {% endfor %}
+
+            {% if not rows %}
+              {% if filters_applied %}
+                <tr><td colspan="18" class="text-center text-muted">No data for the selected period.</td></tr>
+              {% else %}
+                <tr><td colspan="18" class="text-center text-muted">Apply filters and click <strong>Generate</strong> to see results.</td></tr>
+              {% endif %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if filters_applied %}
+        <div class="text-muted small mt-2">
+          <strong>Notes:</strong> Night-shift “OVER” for Mon–Thu reflects daily OT on the 18:00–06:00 session (after split lunch).
+          “Over Fri.” is the weekly remainder after filling an unpaid Friday with Mon–Thu OT (cap 8h).
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

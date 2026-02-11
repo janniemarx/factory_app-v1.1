@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="card shadow p-4 mt-4">
+        <h2 class="mb-3 text-center text-warning">Leftover Cornices Detected!</h2>
+        <div class="alert alert-warning text-center fw-bold">
+          You have <span class="text-danger">{{ leftovers|length }}</span> leftover batches for profile <b>{{ profile_code }}</b>.<br>
+          <span class="text-danger">You must use these before boxing new cornices.</span>
+        </div>
+        <form method="post">
+          {{ form.hidden_tag() }}
+          <div class="mb-4">
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Quantity</th>
+                  <th>Origin Session</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for l in leftovers %}
+                  <tr>
+                    <td>{{ l.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="fw-bold text-primary">{{ l.quantity }}</td>
+                    <td>
+                      <a href="{{ url_for('boxing.session_detail', session_id=l.boxing_session_id) }}">
+                        #{{ l.boxing_session_id }}
+                      </a>
+                    </td>
+                    <td>
+                      {% if not l.used %}
+                        <span class="badge bg-warning text-dark">Unused</span>
+                      {% else %}
+                        <span class="badge bg-success">Used</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              {{ form.confirm_use(class="form-check-input", id="confirm-use") }}
+              <label class="form-check-label fw-bold" for="confirm-use">
+                I have boxed all these leftover cornices and want to mark them as used.
+              </label>
+              {% for error in form.confirm_use.errors %}
+                <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+          {{ form.submit(class="btn btn-success btn-lg w-100") }}
+        </form>
+        <a href="{{ url_for('boxing.start_boxing_session') }}" class="btn btn-link w-100 mt-3">Back</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow p-4">
+      <h2 class="mb-4 text-center">Start Moulded Cornice Session</h2>
+      {% if errors %}
+        <div class="alert alert-danger">
+          <ul>
+            {% for error in errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+      <form method="post" id="startSessionForm" autocomplete="off">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.pre_expansion_id.label(class="form-label") }}
+          {{ form.pre_expansion_id(class="form-select", required=True) }}
+          <div class="form-text">Select a completed, unused pre-expansion batch.</div>
+        </div>
+        <div class="mb-3">
+          {{ form.machine_id.label(class="form-label") }}
+          {{ form.machine_id(class="form-select", required=True) }}
+          <div class="form-text">Select the physical machine running this session.</div>
+        </div>
+        <div class="mb-3">
+          {{ form.mould_number.label(class="form-label") }}
+          {{ form.mould_number(class="form-select", required=True) }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label"><b>Operator:</b> {{ current_user.full_name or current_user.username }}</label>
+        </div>
+        <h5 class="mb-2">Mould Configuration</h5>
+        <div class="mb-3" id="mouldConfigLines"></div>
+        <button type="button" class="btn btn-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#checklistModal" id="openChecklistBtn" disabled>
+          Start Session
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Checklist Modal (as before) -->
+<div class="modal fade" id="checklistModal" tabindex="-1" aria-labelledby="checklistModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="checklistModalLabel">Pre-Start & Cleaning Checklist</h5>
+      </div>
+      <div class="modal-body">
+        <form id="checklistForm" onsubmit="return false;">
+          <h6 class="mt-2">Before Start-up</h6>
+          <ul class="list-group mb-3">
+            {% for i, text in [
+              (1, 'Eliminate moisture inside the main compressed air storage pipeline'),
+              (2, 'Check hydraulic oil level'),
+              (3, 'Check that all pipes are connected to the hopper and the injectors'),
+              (4, 'Wipe up main guide pillars and auxiliary guide pillars and lubricate with oil by pumping the lubrication valve until oil comes out of each bearing'),
+              (5, 'Check ALL the pipeline connections for steam leaks, water leaks and air leaks'),
+              (6, "Check if the pressure of the steam, air and cooling water is at the right levels"),
+              (7, "Check the seal in the mould, if it's clean and complete"),
+              (8, "Check motor operation, working pressure, oil cylinder temperature and various valves/pipe of the hydraulic system are working and normal"),
+              (9, "Check all electrical components can work normally and safely"),
+              (10, "Check that ejector rods(Push rods) are clean and set in the right position"),
+              (11, "Confirm with management when the last hydraulic oil and filter screen change was done (Oil must be changed once a year, Filter screen should be cleaned once half a year). Write the dates below."),
+              (12, "Filter at the entrance of various pipelines should be cleaned twice a year (Please confirm date below)"),
+              (13, "Check the Air filter and atomized lubricator of the compressed air treatment unit once every day to prevent water accumulation. Check oil level.")
+            ] %}
+            <li class="list-group-item d-flex align-items-center">
+              <input type="checkbox" id="check{{i}}" required class="form-check-input me-2">
+              <span>{{ text }}</span>
+            </li>
+            {% endfor %}
+            <li class="list-group-item">
+              <label>11. Last hydraulic oil/filter change date:</label>
+              <input type="text" id="date_hydraulic" class="form-control form-control-sm" placeholder="YYYY-MM-DD" required>
+            </li>
+            <li class="list-group-item">
+              <label>12. Last pipeline filter clean date:</label>
+              <input type="text" id="date_pipeline" class="form-control form-control-sm" placeholder="YYYY-MM-DD" required>
+            </li>
+          </ul>
+
+          <h6>Cleaning</h6>
+          <ul class="list-group mb-3">
+            {% for i, text in [
+              (14, "Floors, walls and pipework are in good condition and free from dirt and dust"),
+              (15, "Machines, equipment and tools are kept clean"),
+              (16, "Stored items, materials and products are kept clean"),
+              (17, "Cleaning tools and materials are easily accessible"),
+              (18, "Cleaning assignments are defined and are being followed"),
+              (19, "Floor is not wet and slippery"),
+              (20, "There is no unnecessary items on the floor deck and on the machines"),
+              (21, "Clean Water Strainer")
+            ] %}
+            <li class="list-group-item d-flex align-items-center">
+              <input type="checkbox" id="check{{i}}" required class="form-check-input me-2">
+              <span>{{ text }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          <div class="mb-2">
+            <label>If any 'No', please comment:</label>
+            <textarea id="comment_checklist" class="form-control" rows="2"></textarea>
+          </div>
+          <div id="checklistError" class="alert alert-danger d-none">Please complete all checklist items before starting.</div>
+          <button type="button" class="btn btn-success w-100" onclick="submitChecklist()">Checklist Complete & Start Session</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const profileMap = {{ profile_map | tojson }};
+function renderLineConfigs() {
+  const mouldNum = parseInt(document.querySelector('[name="mould_number"]').value);
+  const configDiv = document.getElementById('mouldConfigLines');
+  configDiv.innerHTML = '';
+  let entries = (mouldNum === 1) ? 5 : 6;
+  let profileChoices = profileMap[mouldNum];
+  for (let i = 0; i < entries; i++) {
+    let select = document.createElement('select');
+    select.name = `line_configs-${i}-profile_code`;
+    select.required = true;
+    select.className = "form-select mb-2";
+    select.innerHTML = profileChoices.map(opt => `<option value="${opt[0]}">${opt[1]}</option>`).join('');
+    let wrapper = document.createElement('div');
+    wrapper.className = 'input-group mb-2';
+    wrapper.innerHTML = `<span class="input-group-text">Line ${i + 1}</span>`;
+    wrapper.appendChild(select);
+    configDiv.appendChild(wrapper);
+  }
+  validateSessionForm();
+}
+function validateSessionForm() {
+  const batch = document.querySelector('[name="pre_expansion_id"]').value;
+  const mould = document.querySelector('[name="mould_number"]').value;
+  const machine = document.querySelector('[name="machine_id"]').value; // NEW
+  const configs = document.querySelectorAll('#mouldConfigLines select');
+  let configsFilled = true;
+  configs.forEach(cfg => { if (!cfg.value) configsFilled = false; });
+  document.getElementById('openChecklistBtn').disabled = !(batch && mould && configsFilled);
+}
+document.addEventListener('DOMContentLoaded', function() {
+  renderLineConfigs();
+  document.querySelector('[name="mould_number"]').addEventListener('change', renderLineConfigs);
+  document.querySelector('[name="pre_expansion_id"]').addEventListener('change', validateSessionForm);
+  document.getElementById('mouldConfigLines').addEventListener('change', validateSessionForm);
+});
+function submitChecklist() {
+  let allChecked = true;
+  for (let i = 1; i <= 21; i++) {
+    if (!document.getElementById('check' + i).checked) allChecked = false;
+  }
+  if (!document.getElementById('date_hydraulic').value || !document.getElementById('date_pipeline').value) allChecked = false;
+  if (allChecked) {
+    let modal = bootstrap.Modal.getInstance(document.getElementById('checklistModal'));
+    modal.hide();
+    document.getElementById('startSessionForm').submit();
+  } else {
+    document.getElementById('checklistError').classList.remove('d-none');
+  }
+}
+</script>
+{% endblock %}
+

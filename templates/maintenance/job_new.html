@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xl-8">
+      <div class="card shadow-sm p-3 p-md-4 mt-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h2 class="mb-0">Log Maintenance Job</h2>
+            <div class="text-muted small">Create a new job for the maintenance team.</div>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('maintenance.jobs_list') }}">
+            <i class="bi bi-list-task"></i> All Jobs
+          </a>
+        </div>
+
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Title</label>
+              {{ form.title(class="form-control", placeholder="Short description (e.g. 'Extruder 2 oil leak')") }}
+              {% for e in form.title.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              {{ form.description(class="form-control", rows="5", placeholder="Details, symptoms, attachments noted, safety concerns, etc.") }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Location / Area</label>
+              {{ form.location(class="form-control", placeholder="E.g. Extrusion Bay") }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Asset / Equipment Code</label>
+              {{ form.asset_code(class="form-control", placeholder="E.g. EXTR-2") }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Priority</label>
+              {{ form.priority(class="form-select") }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Category</label>
+              {{ form.category(class="form-select") }}
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            {{ form.submit(class="btn btn-primary") }}
+            <a class="btn btn-light" href="{{ url_for('maintenance.jobs_list') }}">Cancel</a>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

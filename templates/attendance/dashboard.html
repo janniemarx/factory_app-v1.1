@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+{% macro dh(seconds) -%}
+  {{ ((seconds or 0) / 3600.0)|round(2) }}
+{%- endmacro %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xxl-11">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mt-4 mb-3">
+        <div>
+          <h2 class="mb-0">Attendance</h2>
+          <div class="text-muted small">Filter, review daily totals and overtime buckets.</div>
+        </div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.sync') }}"><i class="bi bi-arrow-down-up"></i> Sync</a>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.recompute') }}"><i class="bi bi-cpu"></i> Recompute</a>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('attendance.manual_event') }}"><i class="bi bi-pencil-square"></i> Manual Event</a>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <form method="get" class="row g-2 align-items-end">
+            {{ filter_form.hidden_tag() }}
+            <div class="col-md-3">
+              <label class="form-label mb-0">From</label>
+              {{ filter_form.start_date(class="form-control") }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label mb-0">To</label>
+              {{ filter_form.end_date(class="form-control") }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label mb-0">Room</label>
+              {{ filter_form.room_number(class="form-select") }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label mb-0">Name</label>
+              <div class="d-flex gap-2">
+                {{ filter_form.name_like(class="form-control") }}
+                <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i></button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {# Cross-tab grid (preferred) #}
+      {% if days and grid %}
+      <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+          <table class="table table-bordered align-middle small">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:220px;">Employee</th>
+                {% for d in days %}
+                  <th class="text-center">
+                    {{ d.strftime('%a %d/%m') }}
+                    <div class="text-muted small">In / Out</div>
+                  </th>
+                {% endfor %}
+                <th class="text-end" style="min-width:110px;">Week Total (h)</th>
+                <th class="text-end">Normal</th>
+                <th class="text-end">OT1</th>
+                <th class="text-end">OT2</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in grid %}
+              <tr>
+                <td class="fw-semibold">{{ row.operator.full_name or row.operator.username }}</td>
+                {% for d in days %}
+                  {% set cell = row.by_day.get(d) %}
+                  <td class="text-center">
+                    {% if cell %}
+                      <div>
+                        {{ cell.ui_first_in.strftime('%H:%M') if cell.ui_first_in else '—' }}
+                        /
+                        {{ cell.ui_last_out.strftime('%H:%M') if cell.ui_last_out else '—' }}
+                      </div>
+                      {% if cell.ui_segment_count is defined %}
+                        <div class="text-muted xsmall">{{ cell.ui_segment_count }} seg</div>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+                <td class="text-end">{{ dh(row.week_total_seconds) }}</td>
+                <td class="text-end">{{ dh(row.normal_seconds) }}</td>
+                <td class="text-end">{{ dh(row.ot1_seconds) }}</td>
+                <td class="text-end">{{ dh(row.ot2_seconds) }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="{{ 5 + (days|length) }}" class="text-center text-muted">No attendance found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {# Flat list fallback: show AttendanceDaily rows #}
+      {% elif attendance_days %}
+      <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+          <table class="table table-striped align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Employee</th>
+                <th>Day</th>
+                <th>In</th>
+                <th>Out</th>
+                <th class="text-end">Worked (h)</th>
+                <th class="text-end">Normal</th>
+                <th class="text-end">OT1</th>
+                <th class="text-end">OT2</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in attendance_days %}
+              <tr>
+                <td>{{ d.operator.full_name or d.operator.username }}</td>
+                <td>{{ d.day.strftime('%Y-%m-%d') }}</td>
+                <td>{{ (d.first_in|to_local).strftime('%H:%M') if d.first_in else '—' }}</td>
+                <td>{{ (d.last_out|to_local).strftime('%H:%M') if d.last_out else '—' }}</td>
+                <td class="text-end">{{ dh(d.worked_seconds) }}</td>
+                <td class="text-end">{{ dh(d.normal_seconds) }}</td>
+                <td class="text-end">{{ dh(d.ot1_seconds) }}</td>
+                <td class="text-end">{{ dh(d.ot2_seconds) }}</td>
+                <td class="small text-muted">{{ d.notes or '' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="9" class="text-center text-muted">No attendance found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% else %}
+        <div class="alert alert-info">Choose a date range and apply filters.</div>
+      {% endif %}
+
+      <div class="d-flex justify-content-end my-3">
+        <form method="post" action="{{ url_for('attendance.export') }}">
+          <input type="hidden" name="start_date" value="{{ filter_form.start_date.data or request.args.get('start_date','') }}">
+          <input type="hidden" name="end_date" value="{{ filter_form.end_date.data or request.args.get('end_date','') }}">
+          <input type="hidden" name="room_number" value="{{ filter_form.room_number.data if filter_form.room_number.data is not none else '' }}">
+          <button class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Export XLSX</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

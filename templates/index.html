@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .app-tile{display:block;text-decoration:none;border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:14px 14px;min-height:110px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.04);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+  @media(hover:hover){.app-tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.08);border-color:rgba(0,0,0,.12)}}
+  .app-icon{font-size:1.7rem;line-height:1}
+  .app-title{font-weight:600;font-size:1.02rem}
+  .app-desc{font-size:.75rem;color:#6c757d;line-height:1.1rem}
+  .section-anchor{scroll-margin-top:90px}
+  .cat-head{font-size:.8rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#6c757d;margin:0 0 .5rem}
+  .placeholder-badge{font-size:.65rem;font-weight:600;letter-spacing:.06em;background:#f8d7da;color:#b02a37;padding:.15rem .45rem;border-radius:4px}
+  .sticky-quicknav{position:sticky;bottom:0;z-index:1020;background:#fff;border-top:1px solid rgba(0,0,0,.08)}
+  .sticky-quicknav .nav-link{padding:.6rem 0;font-weight:600;color:#6c757d;font-size:.8rem}
+  .sticky-quicknav .nav-link.active{color:#0d6efd}
+  @media(min-width:992px){.sticky-quicknav{display:none}}
+  @media (prefers-reduced-motion: reduce){.app-tile{transition:none}}
+</style>
+
+<div class="container py-3">
+  <div class="text-center mb-4">
+    <h2 class="display-6 fw-bold mb-1">Factory Dashboard</h2>
+    <p class="text-secondary mb-0">Structured shortcuts by function for clarity when presenting to management.</p>
+  </div>
+
+  <!-- Production Operations -->
+  <section id="production" class="section-anchor mb-4">
+    <h6 class="cat-head"><i class="bi bi-gear-wide-connected me-1"></i>Production Operations</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+      {% for title, desc, icon, route, qs in [
+        ('Pre-Expansion','Start & log pre-expansion','bi-boxes','pre_expansion.start_pre_expansion_session',''),
+        ('Block Moulding','Create blocks from batches','bi-bricks','blocks.start_block_session',''),
+        ('Profile Cutting','Assign & cut profiles','bi-scissors','cutting.start_session',''),
+        ('PR16 Wrapping','Wrap → dry → trim','bi-arrow-repeat','pr16.start_session',''),
+        ('Moulded Cornice','Run moulded production','bi-grid-3x3-gap-fill','moulded_cornice.start_session',''),
+        ('Moulded Boxing','Box moulded cornices','bi-box-seam','moulded_boxing.start',''),
+        ('Boxing','Box cut profiles','bi-box','boxing.start_boxing_session',''),
+        ('Extrusion Start','New extrusion session','bi-cpu','extrusion.start_session',''),
+        ('Extrusion Active','Monitor running','bi-activity','extrusion.active_sessions',''),
+        ('Extrusion Done','Completed sessions','bi-clock-history','extrusion.completed_sessions',''),
+        ('Extrusion Settings','Manage profile settings','bi-sliders','extrusion.profiles_list',''),
+        ('New Extrusion Setting','Snapshot settings','bi-sliders2','extrusion.settings_new',''),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}{{ qs }}" class="app-tile" aria-label="{{ title }}">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-primary"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+      <!-- Wire Cutter Profile Assignment (existing feature) -->
+      {% if current_user.is_authenticated and current_user.is_manager %}
+      <div class="col">
+        <a href="{{ url_for('cutting.assign_profiles') }}" class="app-tile" aria-label="Wire Cutter Assignment">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-primary"><i class="bi bi-diagram-3"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Wire Cutter Assignment</div>
+          <div class="app-desc">Assign profiles to machines</div>
+        </a>
+      </div>
+      {% else %}
+      <div class="col">
+        <div class="app-tile position-relative" style="opacity:.6;cursor:not-allowed" title="Managers only">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-secondary"><i class="bi bi-diagram-3"></i></div>
+          </div>
+          <div class="mt-2 app-title">Wire Cutter Assignment</div>
+          <div class="app-desc">(Manager only)</div>
+          <span class="placeholder-badge position-absolute top-0 end-0 mt-1 me-1">LOCKED</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Sessions -->
+  <section id="sessions" class="section-anchor mb-4">
+    <h6 class="cat-head"><i class="bi bi-play-circle me-1"></i>Sessions</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+      {% for title, desc, icon, route in [
+        ('Pre-Expansion Active','Resume/monitor sessions','bi-boxes','pre_expansion.view_active_sessions'),
+        ('Block Sessions','Active block moulding','bi-bricks','blocks.active_sessions'),
+        ('Boxing Sessions','All boxing sessions','bi-box','boxing.view_sessions'),
+        ('Cutting Sessions','All cutting sessions','bi-scissors','cutting.view_sessions'),
+        ('Extrusion Active','Running extrusions','bi-activity','extrusion.active_sessions'),
+        ('PR16 Sessions','Wrap/dry/trim overview','bi-arrow-repeat','pr16.sessions'),
+        ('Moulded Sessions','Moulded production sessions','bi-grid-3x3-gap-fill','moulded_cornice.view_sessions'),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}" class="app-tile" aria-label="{{ title }}">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-primary"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Quality & Maintenance -->
+  <section id="quality" class="section-anchor mb-4">
+    <h6 class="cat-head"><i class="bi bi-wrench-adjustable-circle me-1"></i>Quality & Maintenance</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+      {% for title, desc, icon, route, qs in [
+        ('Quality Control','QC cut & moulded batches','bi-clipboard2-check','qc.pending_qc',''),
+        ('QC → Boxing','Ready for boxing','bi-box-arrow-in-right','qc.ready_for_boxing',''),
+        ('Maintenance Log','Create maintenance job','bi-wrench','maintenance.job_new',''),
+        ('Maintenance Open','Assign / work jobs','bi-tools','maintenance.jobs_list',''),
+        ('Maintenance Mine','Jobs assigned to me','bi-person-check','maintenance.jobs_list','?mine=1'),
+        ('Maintenance Review','Approve / rework','bi-clipboard-check','maintenance.jobs_review_queue',''),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}{{ qs }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-warning"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+      <!-- Real: Material Posting to Pastel -->
+      <div class="col">
+        <a href="{{ url_for('pre_expansion.pastel_pending') }}" class="app-tile" aria-label="Pastel Material Post">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-secondary"><i class="bi bi-cloud-upload"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Pastel Material Post</div>
+          <div class="app-desc">Sessions awaiting capture</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  {% if FEATURES.attendance %}
+  <!-- Attendance & HR -->
+  <section id="attendance" class="section-anchor mb-4">
+    <h6 class="cat-head"><i class="bi bi-people me-1"></i>Attendance & HR</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+      {% for title, desc, icon, route, qs in [
+        ('Dashboard','In/Out grid & totals','bi-people','attendance.dashboard',''),
+        ('Exceptions','Fix missing punches','bi-exclamation-triangle','attendance.exceptions_list',''),
+        ('Sync Device','Pull logs from device','bi-arrow-down-circle','attendance.sync',''),
+        ('Overtime Queue','Approve pending OT','bi-alarm','attendance.overtime_queue',''),
+        ('Overtime Report','Weekly export & totals','bi-file-earmark-spreadsheet','attendance.overtime_report',''),
+        ('Capture Leave','Manager capture leave','bi-calendar-plus','attendance.leave_new',''),
+        ('Leave Requests','Review / approve leave','bi-calendar-check','attendance.leave_queue',''),
+        ('Leave Balances','Current balances','bi-balance-scale','attendance.leave_balances',''),
+        ('Payroll Leave','Mark captured','bi-cash-coin','attendance.payroll_leave_queue',''),
+        ('Schedules','Workday & policies','bi-calendar3','attendance.schedules',''),
+        ('Manual Event','Insert/correct IN/OUT','bi-pencil-square','attendance.manual_event',''),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}{{ qs }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-info"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if FEATURES.analytics %}
+  <!-- Analytics & Reports -->
+  <section id="analytics" class="section-anchor mb-4">
+    <h6 class="cat-head"><i class="bi bi-bar-chart-line me-1"></i>Analytics & Reports</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+      {% for title, desc, icon, route, qs in [
+        ('Production Reports','All production & KPIs','bi-bar-chart','reports.production_report',''),
+        ('Profile Performance','Per-profile metrics','bi-speedometer','reports.profile_performance',''),
+        ('Efficiency / Wastage','Efficiency & scrap','bi-graph-up-arrow','reports.efficiency_report',''),
+        ('Lead Times','Throughput & LT','bi-clock-history','reports.lead_time_report',''),
+        ('EPS Factory','Factory dashboards','bi-pie-chart','eps_factory_analytics.analytics_dashboard',''),
+        ('Boxing Analytics','Boxing KPIs','bi-bar-chart','boxing_analytics.dashboard',''),
+        ('Block Cutting','Cutting analytics','bi-scissors','cutting_analytics.dashboard',''),
+        ('Moulded Cornice','Moulded analytics','bi-grid-3x3-gap-fill','moulded_analytics.dashboard',''),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}{{ qs }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-success"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+      <div class="col">
+        <a href="{{ url_for('extrusion_analytics.dashboard') }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-success"><i class="bi bi-cpu"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Extrusion Analytics</div>
+          <div class="app-desc">Throughput & damage</div>
+        </a>
+      </div>
+      <div class="col">
+        <a href="{{ url_for('maintenance_analytics.dashboard') }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-success"><i class="bi bi-wrench-adjustable"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Maintenance KPIs</div>
+          <div class="app-desc">MTTR & backlog</div>
+        </a>
+      </div>
+      {% if FEATURES.attendance %}
+      <!-- Attendance & Payroll analytics subset -->
+      <div class="col">
+        <a href="{{ url_for('attendance.overtime_report') }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-success"><i class="bi bi-people"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Overtime Report</div>
+          <div class="app-desc">Attendance & payroll view</div>
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Admin & Setup -->
+  <section id="admin" class="section-anchor mb-5">
+    <h6 class="cat-head"><i class="bi bi-sliders me-1"></i>Admin & Setup</h6>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+      {% if FEATURES.attendance %}
+      <div class="col">
+        <a href="{{ url_for('attendance.operators') }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-secondary"><i class="bi bi-person-gear"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">Operator Maintenance</div>
+          <div class="app-desc">Manage operators</div>
+        </a>
+      </div>
+      {% endif %}
+      {% for title, desc, icon, route, qs in [
+        ('Extrusion Settings','Profiles & parameters','bi-sliders','extrusion.profiles_list',''),
+        ('New Extrusion Setting','Create setting snapshot','bi-sliders2','extrusion.settings_new',''),
+      ] %}
+      <div class="col">
+        <a href="{{ url_for(route) }}{{ qs }}" class="app-tile">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-secondary"><i class="bi {{ icon }}"></i></div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+          <div class="mt-2 app-title">{{ title }}</div>
+          <div class="app-desc">{{ desc }}</div>
+        </a>
+      </div>
+      {% endfor %}
+      <!-- Placeholder future admin items -->
+      <div class="col">
+        <div class="app-tile position-relative" style="opacity:.7;cursor:not-allowed">
+          <div class="d-flex align-items-start justify-content-between">
+            <div class="app-icon text-secondary"><i class="bi bi-calculator"></i></div>
+          </div>
+          <div class="mt-2 app-title">Pay & Leave Config</div>
+          <div class="app-desc">Central entitlement setup</div>
+          <span class="placeholder-badge position-absolute top-0 end-0 mt-1 me-1">ROADMAP</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <nav class="sticky-quicknav">
+    <ul class="nav justify-content-around">
+      <li class="nav-item"><a class="nav-link active" href="#production"><i class="bi bi-gear-wide-connected"></i><br><small>Prod</small></a></li>
+      <li class="nav-item"><a class="nav-link" href="#sessions"><i class="bi bi-play-circle"></i><br><small>Sessions</small></a></li>
+      <li class="nav-item"><a class="nav-link" href="#quality"><i class="bi bi-wrench"></i><br><small>Quality</small></a></li>
+      {% if FEATURES.attendance %}
+      <li class="nav-item"><a class="nav-link" href="#attendance"><i class="bi bi-people"></i><br><small>HR</small></a></li>
+      {% endif %}
+      {% if FEATURES.analytics %}
+      <li class="nav-item"><a class="nav-link" href="#analytics"><i class="bi bi-bar-chart-line"></i><br><small>Analytics</small></a></li>
+      {% endif %}
+      <li class="nav-item"><a class="nav-link" href="#admin"><i class="bi bi-sliders"></i><br><small>Admin</small></a></li>
+    </ul>
+  </nav>
+</div>
+{% endblock %}

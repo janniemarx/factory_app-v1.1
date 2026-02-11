@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Pastel Capture for Batch {{ pre_exp.batch_no }}</h2>
+
+<ul class="list-group mb-4">
+  <li class="list-group-item"><b>Operator:</b> {{ pre_exp.operator.full_name or pre_exp.operator.username if pre_exp.operator else '-' }}</li>
+  <li class="list-group-item"><b>Date Started:</b> {{ pre_exp.start_time.strftime('%Y-%m-%d') }}</li>
+  <li class="list-group-item"><b>Time Started:</b> {{ pre_exp.start_time.strftime('%H:%M') }}</li>
+  <li class="list-group-item"><b>Time Ended:</b> {{ pre_exp.end_time.strftime('%H:%M') if pre_exp.end_time else '-' }}</li>
+  <li class="list-group-item"><b>Material Code:</b> {{ pre_exp.material_code }}</li>
+
+  {% if pre_exp.purpose == 'Block' %}
+    <li class="list-group-item">
+      <b>KG of Blocks Made:</b> {{ '%.2f'|format(total_block_kg) }}
+    </li>
+  <li class="list-group-item">
+    <b>Blocks Remaining (not cut yet):</b> {{ remaining_blocks_count or 0 }}
+    {% if remaining_block_numbers and remaining_block_numbers|length > 0 %}
+    <div class="text-muted" style="margin-top: 4px;">
+      {{ remaining_block_numbers|join(', ') }}
+    </div>
+    {% endif %}
+  </li>
+    <li class="list-group-item">
+      <b>KG of Material Used (batch availability):</b> {{ '%.2f'|format(material_used_kg) }}
+    </li>
+    <li class="list-group-item">
+      <b>Leftover After Blocks:</b>
+      {% set lo = leftover_kg or 0.0 %}
+      {{ '%.2f'|format(lo) }} kg
+      {% if lo > 0 %}
+        — <b>Disposition:</b>
+        {% if leftover_disposition == 'moulded' %}Moulded Cornice Batch{% elif leftover_disposition == 'pr16' %}PR16 Stash{% else %}Unknown{% endif %}
+      {% else %}
+        — No leftover
+      {% endif %}
+    </li>
+
+    <!-- Material Flow Breakdown -->
+    <li class="list-group-item">
+      <div class="card mt-2">
+        <div class="card-header bg-light"><b>Material Flow Breakdown</b></div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item">
+            <b>Pre-Expanded (actual):</b>
+            {% set actual_used = operator_entered_used_kg or 0.0 %}
+            {{ '%.2f'|format(actual_used) }} kg
+            {% if pre_exp.planned_kg %}
+              <span class="text-muted">(Raw before: {{ '%.2f'|format(pre_exp.planned_kg) }} kg{% if pre_exp.raw_after_kg is not none %}, raw after: {{ '%.2f'|format(pre_exp.raw_after_kg) }} kg{% endif %})</span>
+            {% endif %}
+          </li>
+          <li class="list-group-item">
+            <b>Pulled from this batch into blocks:</b> {{ '%.2f'|format(kg_from_this_batch_in_session or 0.0) }} kg
+          </li>
+          <li class="list-group-item">
+            <b>Pulled from previous expansions / PR16:</b> {{ '%.2f'|format(kg_from_pr16_in_session or 0.0) }} kg
+          </li>
+        </ul>
+      </div>
+    </li>
+
+      <!-- Profiles Cut From This Batch's Blocks -->
+      <li class="list-group-item">
+      <div class="card mt-2">
+        <div class="card-header bg-light"><b>Profiles Cut From This Batch (by Block)</b></div>
+        <div class="card-body">
+        {% if cut_profiles_by_block and cut_profiles_by_block|length > 0 %}
+          <div class="table-responsive">
+          <table class="table table-sm table-striped mb-0">
+            <thead>
+            <tr>
+              <th>Block</th>
+              <th>Profile</th>
+              <th class="text-end">Cut</th>
+              <th class="text-end">Damaged</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in cut_profiles_by_block %}
+              <tr>
+              <td>{{ r.block_number }}</td>
+              <td>{{ r.profile_code }}</td>
+              <td class="text-end">{{ r.profiles_cut }}</td>
+              <td class="text-end">{{ r.damaged }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% else %}
+          <div class="text-muted">No cutting records found yet for blocks in this batch.</div>
+        {% endif %}
+        </div>
+      </div>
+      </li>
+
+  {% elif pre_exp.purpose == 'Moulded' %}
+    <li class="list-group-item">
+      <b>Total KG of Cornices (produced):</b> {{ '%.2f'|format(total_cornice_kg) }}
+    </li>
+    <li class="list-group-item">
+      <b>KG Material Used:</b> {{ '%.2f'|format(material_used_kg) }}
+    </li>
+  {% endif %}
+</ul>
+
+{% if not pre_exp.is_pastel_captured %}
+<form method="post">
+  {{ form.hidden_tag() }}
+  <button class="btn btn-success">Mark as Captured</button>
+</form>
+{% else %}
+<div class="alert alert-success">Already marked as captured to Pastel.</div>
+{% endif %}
+
+<a href="{{ url_for('pre_expansion.pastel_pending') }}" class="btn btn-secondary mt-2">Back</a>
+{% endblock %}

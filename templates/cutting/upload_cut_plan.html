@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card shadow p-4">
+        <h2 class="text-center mb-4">Upload Cutting Plan (Stock to Produce)</h2>
+        <form method="post" enctype="multipart/form-data">
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.file.label(class="form-label") }}
+            {{ form.file(class="form-control") }}
+          </div>
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="bi bi-upload"></i> Upload File
+          </button>
+        </form>
+        <div class="alert alert-info mt-3">
+          <b>Instructions:</b> Please upload the latest <i>Stock to produce</i> Excel sheet. Only rows from A17/B17/C17 down will be processed for PR profiles.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

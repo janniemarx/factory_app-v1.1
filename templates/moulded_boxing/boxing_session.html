@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  /* keep columns neat and aligned */
+  .col-fixed-120 { width: 120px; }
+  .col-fixed-160 { width: 160px; }
+</style>
+
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">
+      Boxing Moulded Session #{{ moulded.id if moulded else session.moulded_session_id }}
+    </h3>
+    <div class="text-muted">
+      Drying time: <b>{{ session.drying_minutes }} min</b>
+    </div>
+  </div>
+
+  <div class="card p-3 shadow-sm mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <!-- Pause / Resume -->
+      <form method="post" class="d-inline">
+        {{ pause_form.hidden_tag() }}
+        {% if session.is_paused %}
+          <button type="submit" name="resume" class="btn btn-success">Resume</button>
+        {% else %}
+          <button type="submit" name="pause" class="btn btn-warning text-dark"
+                  {% if session.status != 'active' %}disabled{% endif %}>
+            Pause
+          </button>
+        {% endif %}
+      </form>
+
+      <!-- Finish (sets to QC Pending; does NOT open QC) -->
+      <form method="post" class="d-inline ms-auto">
+        {{ finish_form.hidden_tag() }}
+        <button type="submit" name="finish" class="btn btn-danger">
+          Finish Boxing (Set QC Pending)
+        </button>
+      </form>
+    </div>
+
+    <div class="small text-muted mt-2">
+      Status: <b>{{ session.status|replace('_',' ')|upper }}</b>
+      {% if session.is_paused %} — paused since {{ session.pause_start.strftime('%H:%M') if session.pause_start else '' }}{% endif %}
+      <span class="ms-3">Drying time: <b>{{ session.drying_minutes }} min</b></span>
+    </div>
+  </div>
+
+  {% set can_save = (session.status == 'active') %}
+  {% set paused = session.is_paused %}
+
+  {% if not can_save %}
+    <div class="alert alert-info mb-3">
+      This session is <b>{{ session.status.replace('_',' ').title() }}</b>. No more line saves allowed.
+    </div>
+  {% endif %}
+
+  {% if rows and can_save %}
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="col-fixed-120">Profile</th>
+            <th class="col-fixed-120">Per Box</th>
+            <th style="width:360px">Add (Boxes / Leftovers)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            {% set f = forms[r.profile_code] %}
+            <tr>
+              <td><span class="badge bg-primary">{{ r.profile_code }}</span></td>
+              <td>{{ r.cornices_per_box }}</td>
+              <td>
+                <form method="post" action="{{ url_for('moulded_boxing.save_line') }}" class="row g-2">
+                  {{ f.hidden_tag() }}
+                  <div class="col-5">
+                    {{ f.boxes_packed(
+                         class="form-control",
+                         placeholder="Boxes",
+                         disabled=paused
+                       ) }}
+                  </div>
+                  <div class="col-5">
+                    {{ f.leftovers(
+                         class="form-control",
+                         placeholder="Leftovers",
+                         disabled=paused
+                       ) }}
+                  </div>
+                  <div class="col-2 d-grid">
+                    {{ f.save(class="btn btn-success", disabled=paused) }}
+                  </div>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if paused %}
+        <div class="alert alert-warning mt-2 mb-0">
+          Session is paused. Inputs are disabled — click <b>Resume</b> to continue.
+        </div>
+      {% endif %}
+    </div>
+
+  {% elif rows and not can_save %}
+    <!-- There are rows remaining but session isn't active anymore -->
+    <div class="alert alert-warning">
+      Profiles remain, but the session is not active. Click <b>Finish</b> to move/confirm QC Pending or resume the session first.
+    </div>
+
+  {% else %}
+    <div class="alert alert-success">
+      All profiles for this session are boxed. Click <b>Finish</b> to move to <b>QC Pending</b>.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

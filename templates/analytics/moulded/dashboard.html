@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  :root{
+    --brand:#2563eb;
+    --ink:#0f172a;
+    --muted:#6b7280;
+    --ok:#16a34a;
+    --warn:#d97706;
+    --bad:#dc2626;
+    --card:#f8fafc;
+    --ring:rgba(37,99,235,.12);
+  }
+
+  /* Page header */
+  .page-head h2{ font-weight:800; letter-spacing:.2px; }
+  .page-sub{ color:var(--muted); }
+
+  /* Filter card */
+  .filter-card{ border-radius:1rem; box-shadow:0 2px 14px rgba(0,0,0,.06); padding:1rem 1.25rem; background:#fff; }
+  .filter-card .form-label{ font-weight:600; color:var(--muted); }
+
+  /* Stat cards */
+  .stat-card{
+    position:relative; background:var(--card);
+    border-radius:1rem; padding:1.1rem 1.25rem;
+    box-shadow:0 2px 16px rgba(0,0,0,.06);
+  }
+  .stat-card::before{
+    content:""; position:absolute; inset:0; border-radius:1rem;
+    padding-top:2px; background:linear-gradient(90deg,var(--ring),transparent);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  .stat-title{ font-size:.95rem; color:var(--muted); display:flex; align-items:center; gap:.5rem; }
+  .stat-value{ font-size:2rem; font-weight:800; line-height:1.1; color:var(--ink); }
+  .stat-note{ color:var(--muted); font-size:.9rem; }
+
+  .icon-pill{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:999px; background:#eef2ff; color:var(--brand);
+  }
+
+  /* Generic metric (kept from your file for quick reuse) */
+  .metric { border-radius: 1rem; padding: 1.15rem; box-shadow: 0 2px 14px rgba(0,0,0,.06); background:var(--card);}
+  .metric .label { color:var(--muted); font-size: .95rem; font-weight:600; }
+  .metric .value { font-size: 2rem; font-weight: 800; }
+
+  .caption{ color:var(--muted); font-size:.9rem; }
+
+  /* Performance badge */
+  .perf-pill{
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem;
+  }
+  .perf-above{ background:rgba(22,163,74,.12); color:var(--ok); }
+  .perf-below{ background:rgba(220,38,38,.12); color:var(--bad); }
+  .perf-at{ background:#eef2f6; color:#374151; }
+
+  /* Table polish */
+  .table-sticky thead th{ position:sticky; top:0; z-index:2; background:#f1f5f9; }
+  .table td, .table th{ vertical-align:middle; }
+  .delta-pos{ color:var(--ok); font-weight:700; }
+  .delta-neg{ color:var(--bad); font-weight:700; }
+
+  /* Chips in sessions */
+  .chip{
+    background:#eef2ff; color:#1f2937; border-radius:.75rem; padding:.15rem .5rem;
+    font-size:.8rem; display:inline-block; white-space:nowrap;
+  }
+  .chips-row{ display:grid; grid-template-columns:repeat(2,max-content); gap:.25rem .4rem; }
+  td.profiles-cell{ width:220px; white-space:normal; }
+
+  /* Sessions toggle */
+  #sessions-container{ transition: all .2s ease; }
+</style>
+
+<div class="container py-4">
+  <!-- Header -->
+  <div class="page-head d-flex justify-content-between align-items-end mb-3">
+    <div>
+      <h2 class="mb-1">Moulded Cornice Analytics</h2>
+      <div class="page-sub">Production performance, waste and quality — all in one view.</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="post" class="filter-card mb-4">
+    {{ form.hidden_tag() }}
+    <div class="row g-3 align-items-end">
+      <div class="col-md-2">
+        {{ form.mould_number.label(class="form-label") }}
+        {{ form.mould_number(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.machine_id.label(class="form-label") }}
+        {{ form.machine_id(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.operator_id.label(class="form-label") }}
+        {{ form.operator_id(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.period.label(class="form-label") }}
+        {{ form.period(class="form-select") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.date_from.label(class="form-label") }}
+        {{ form.date_from(class="form-control") }}
+      </div>
+      <div class="col-md-2">
+        {{ form.date_to.label(class="form-label") }}
+        {{ form.date_to(class="form-control") }}
+      </div>
+      <div class="col-12 col-md-2 mt-2">
+        {{ form.submit(class="btn btn-primary w-100") }}
+      </div>
+    </div>
+  </form>
+
+  <!-- KPI row -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="stat-card h-100">
+        <div class="stat-title"><span class="icon-pill"><i class="bi bi-stopwatch"></i></span> Avg Time / Cycle</div>
+        <div class="stat-value text-primary">
+          {{ analytics.factory_summary.avg_time_per_cycle_min or '-' }} <span class="fs-6">min</span>
+        </div>
+        <div class="stat-note">Across filtered sessions</div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="stat-card h-100">
+        <div class="stat-title"><span class="icon-pill"><i class="bi bi-calendar-check"></i></span> Cycles (Today)</div>
+        <div class="stat-value" style="color:var(--ok);">
+          {{ analytics.factory_summary.total_cycles_today or 0 }}
+        </div>
+        <div class="stat-note">As of {{ now.strftime('%H:%M') }}</div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="stat-card h-100">
+        <div class="stat-title"><span class="icon-pill"><i class="bi bi-box-seam"></i></span> Cornices Made (Today)</div>
+        <div class="stat-value" style="color:var(--ok);">
+          {{ analytics.factory_summary.total_cornices_today or 0 }}
+        </div>
+        <div class="stat-note">All machines</div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="stat-card h-100">
+        <div class="stat-title"><span class="icon-pill"><i class="bi bi-calendar-month"></i></span> Cornices Made (This Month)</div>
+        <div class="stat-value">{{ analytics.factory_summary.total_cornices_month or 0 }}</div>
+        <div class="stat-note">Month-to-date</div>
+      </div>
+    </div>
+  </div>
+
+  {# ---------- Macros (styled) ---------- #}
+  {% macro perf_badge(row) -%}
+    {% set bench = row.benchmark_min_time %}
+    {% set perf = row.performance %}
+    {% set delta = row.expectation_delta %}
+    {% if bench is none %}
+      <span class="perf-pill perf-at"><i class="bi bi-dash-lg"></i> No benchmark</span>
+    {% elif perf == 'above' and delta is not none %}
+      <span class="perf-pill perf-above"><i class="bi bi-arrow-up-right"></i> Above (−{{ (delta|float * -1)|round(2) }})</span>
+    {% elif perf == 'below' and delta is not none %}
+      <span class="perf-pill perf-below"><i class="bi bi-arrow-down-right"></i> Below (+{{ (delta|float)|round(2) }})</span>
+    {% elif perf == 'at' %}
+      <span class="perf-pill perf-at"><i class="bi bi-check2"></i> At benchmark</span>
+    {% else %}
+      <span class="perf-pill perf-at"><i class="bi bi-dash-lg"></i> —</span>
+    {% endif %}
+  {%- endmacro %}
+
+  {% macro wastage_cells(row) -%}
+    <td>{{ row.total_cornices or 0 }}</td>
+    <td>{{ row.boxed_cornices or 0 }}</td>
+    <td>{{ row.wastage_cornices or 0 }}</td>
+    <td>{% if row.wastage_pct is none %}—{% else %}{{ row.wastage_pct }}%{% endif %}</td>
+  {%- endmacro %}
+
+  {% if analytics.period != 'all' %}
+    <!-- Single period -->
+    <h5 class="mt-1 mb-2">
+      Per Machine ({{ analytics.period|capitalize }}){% if analytics.machine_filter %} — {{ analytics.machine_filter.name }}{% endif %}
+    </h5>
+    <div class="caption mb-2">Benchmark = fastest session avg cycle time in the last 90 days. Wastage = Made − Boxed.</div>
+
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover table-sticky align-middle">
+        <thead class="table-secondary">
+          <tr>
+            <th>Machine</th>
+            <th>Sessions</th>
+            <th>Cycles</th>
+            <th>Avg Time / Cycle (min)</th>
+            <th>Benchmark (90d, min)</th>
+            <th>Performance</th>
+            <th>Made Cornices</th>
+            <th>Boxed Cornices</th>
+            <th>Wastage (Cornices)</th>
+            <th>Wastage (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in analytics.machine_stats %}
+          <tr>
+            <td><strong>{{ m.machine }}</strong></td>
+            <td>{{ m.sessions }}</td>
+            <td>{{ m.cycles }}</td>
+            <td>{{ m.avg_cycle_time_min or '-' }}</td>
+            <td>{{ m.benchmark_min_time or '—' }}</td>
+            <td>{{ perf_badge(m) }}</td>
+            {{ wastage_cells(m) }}
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-center text-muted">No data for this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {% else %}
+    {# -------- All periods (Today / Month / Year) -------- #}
+    {% set mf = analytics.machine_filter %}
+
+    <h5 class="mt-1 mb-2">Per Machine — Today{% if mf %} — {{ mf.name }}{% endif %}</h5>
+    <div class="caption mb-2">Benchmark = fastest session avg cycle time in the last 90 days. Wastage = Made − Boxed.</div>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover table-sticky align-middle">
+        <thead class="table-secondary">
+          <tr>
+            <th>Machine</th><th>Sessions</th><th>Cycles</th><th>Avg Time / Cycle (min)</th>
+            <th>Benchmark (90d, min)</th><th>Performance</th>
+            <th>Made Cornices</th><th>Boxed Cornices</th><th>Wastage (Cornices)</th><th>Wastage (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in analytics.machine_stats_all.today %}
+          <tr>
+            <td><strong>{{ m.machine }}</strong></td>
+            <td>{{ m.sessions }}</td>
+            <td>{{ m.cycles }}</td>
+            <td>{{ m.avg_cycle_time_min or '-' }}</td>
+            <td>{{ m.benchmark_min_time or '—' }}</td>
+            <td>{{ perf_badge(m) }}</td>
+            {{ wastage_cells(m) }}
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-center text-muted">No data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h5 class="mt-1 mb-2">Per Machine — This Month{% if mf %} — {{ mf.name }}{% endif %}</h5>
+    <div class="caption mb-2">Benchmark = fastest session avg cycle time in the last 90 days. Wastage = Made − Boxed.</div>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover table-sticky align-middle">
+        <thead class="table-secondary">
+          <tr>
+            <th>Machine</th><th>Sessions</th><th>Cycles</th><th>Avg Time / Cycle (min)</th>
+            <th>Benchmark (90d, min)</th><th>Performance</th>
+            <th>Made Cornices</th><th>Boxed Cornices</th><th>Wastage (Cornices)</th><th>Wastage (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in analytics.machine_stats_all.month %}
+          <tr>
+            <td><strong>{{ m.machine }}</strong></td>
+            <td>{{ m.sessions }}</td>
+            <td>{{ m.cycles }}</td>
+            <td>{{ m.avg_cycle_time_min or '-' }}</td>
+            <td>{{ m.benchmark_min_time or '—' }}</td>
+            <td>{{ perf_badge(m) }}</td>
+            {{ wastage_cells(m) }}
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-center text-muted">No data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h5 class="mt-1 mb-2">Per Machine — This Year{% if mf %} — {{ mf.name }}{% endif %}</h5>
+    <div class="caption mb-2">Benchmark = fastest session avg cycle time in the last 90 days. Wastage = Made − Boxed.</div>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover table-sticky align-middle">
+        <thead class="table-secondary">
+          <tr>
+            <th>Machine</th><th>Sessions</th><th>Cycles</th><th>Avg Time / Cycle (min)</th>
+            <th>Benchmark (90d, min)</th><th>Performance</th>
+            <th>Made Cornices</th><th>Boxed Cornices</th><th>Wastage (Cornices)</th><th>Wastage (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in analytics.machine_stats_all.year %}
+          <tr>
+            <td><strong>{{ m.machine }}</strong></td>
+            <td>{{ m.sessions }}</td>
+            <td>{{ m.cycles }}</td>
+            <td>{{ m.avg_cycle_time_min or '-' }}</td>
+            <td>{{ m.benchmark_min_time or '—' }}</td>
+            <td>{{ perf_badge(m) }}</td>
+            {{ wastage_cells(m) }}
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-center text-muted">No data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Year vs last year -->
+    <h5 class="mt-1 mb-2">Year vs Last Year{% if mf %} — {{ mf.name }}{% endif %}</h5>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover table-sticky align-middle">
+        <thead class="table-secondary">
+          <tr>
+            <th>Machine</th>
+            <th>Cycles (This Year)</th><th>Cycles (Last Year)</th><th>Δ Cycles</th>
+            <th>Cornices (This Year)</th><th>Cornices (Last Year)</th><th>Δ Cornices</th>
+            <th>Avg Time (This Year)</th><th>Avg Time (Last Year)</th><th>Δ Avg Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in analytics.machine_stats_all.compare_year_vs_last %}
+            {% set cd = r.cycles_delta or 0 %}
+            {% set kd = r.cornices_delta or 0 %}
+            {% set td = r.avg_time_delta %}
+            <tr>
+              <td><strong>{{ r.machine }}</strong></td>
+              <td>{{ r.cycles_year }}</td>
+              <td>{{ r.cycles_last_year }}</td>
+              <td class="{{ 'delta-pos' if cd > 0 else 'delta-neg' if cd < 0 else '' }}">{{ cd }}</td>
+
+              <td>{{ r.cornices_year }}</td>
+              <td>{{ r.cornices_last_year }}</td>
+              <td class="{{ 'delta-pos' if kd > 0 else 'delta-neg' if kd < 0 else '' }}">{{ kd }}</td>
+
+              <td>{{ r.avg_time_year or '-' }}</td>
+              <td>{{ r.avg_time_last_year or '-' }}</td>
+              {% if td is none %}
+                <td>—</td>
+              {% else %}
+                <td class="{{ 'delta-pos' if td < 0 else 'delta-neg' if td > 0 else '' }}">{{ td }}</td>
+              {% endif %}
+            </tr>
+          {% else %}
+            <tr><td colspan="10" class="text-center text-muted">No data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <!-- Sessions toggle -->
+  <div class="mt-4">
+    <button id="toggle-sessions" class="btn btn-outline-primary" type="button" aria-expanded="false" aria-controls="sessions-container">
+      View Sessions
+    </button>
+  </div>
+
+  <!-- Sessions table -->
+  <div id="sessions-container" class="mt-3" style="display:none;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="mb-0">Sessions</h5>
+      <button id="close-sessions" class="btn btn-sm btn-outline-secondary" type="button">
+        Hide Sessions
+      </button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-sticky align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Batch</th>
+            <th>Mould</th>
+            <th>Machine</th>
+            <th>Operator</th>
+            <th>Status</th>
+            <th>Cycles</th>
+            <th>Lines</th>
+            <th>Made Cornices</th>
+            <th>Boxed Cornices</th>
+            <th>Wastage (Cornices)</th>
+            <th>Wastage (%)</th>
+            <th>Avg Time/Cycle (min)</th>
+            <th>Session Time (min)</th>
+            <th>Profiles (Qty)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in analytics.sessions %}
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.batch_no }}</td>
+            <td>{{ s.mould }}</td>
+            <td>{{ s.machine }}</td>
+            <td>{{ s.operator }}</td>
+            <td>
+              {% if s.status == 'completed' %}
+                <span class="badge bg-success">Completed</span>
+              {% elif s.status == 'active' %}
+                <span class="badge bg-info text-dark">Active</span>
+              {% elif s.status == 'setup' %}
+                <span class="badge bg-warning text-dark">Setup</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ s.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ s.cycles }}</td>
+            <td>{{ s.lines_count }}</td>
+            <td>{{ s.total_cornices }}</td>
+            <td>{{ s['boxed_cornices'] if 'boxed_cornices' in s else '—' }}</td>
+            <td>{{ s['wastage_cornices'] if 'wastage_cornices' in s else '—' }}</td>
+            <td>
+              {% if 'wastage_pct' in s and s.wastage_pct is not none %}
+                {{ s.wastage_pct }}%
+              {% else %} — {% endif %}
+            </td>
+            <td>{{ s.avg_time_per_cycle_min or '-' }}</td>
+            <td>{{ s.session_time_min or '-' }}</td>
+            <td class="profiles-cell">
+              {% if s.per_profile %}
+                <div class="chips-row">
+                  {% for code, qty in s.per_profile.items() %}
+                    <span class="chip">{{ code }}: {{ qty }}</span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+            <tr><td colspan="15" class="text-center text-muted">No sessions found for these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const toggleBtn = document.getElementById('toggle-sessions');
+  const closeBtn  = document.getElementById('close-sessions');
+  const panel     = document.getElementById('sessions-container');
+  if(!toggleBtn || !panel) return;
+
+  function show(){
+    panel.style.display = 'block';
+    toggleBtn.textContent = 'Hide Sessions';
+    toggleBtn.classList.remove('btn-outline-primary');
+    toggleBtn.classList.add('btn-primary');
+    toggleBtn.setAttribute('aria-expanded','true');
+  }
+  function hide(){
+    panel.style.display = 'none';
+    toggleBtn.textContent = 'View Sessions';
+    toggleBtn.classList.add('btn-outline-primary');
+    toggleBtn.classList.remove('btn-primary');
+    toggleBtn.setAttribute('aria-expanded','false');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const isOpen = panel.style.display !== 'none' && panel.style.display !== '';
+    isOpen ? hide() : show();
+  });
+  if(closeBtn) closeBtn.addEventListener('click', hide);
+})();
+</script>
+{% endblock %}
