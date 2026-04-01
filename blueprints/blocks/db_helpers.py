@@ -94,7 +94,13 @@ def get_session_blocks(session_id):
 # ----------------------------
 from models.pr16_stash import PR16Stash  # ✅ keep this import
 
-def pr16_total_remaining(density, material_code):
+def pr16_total_remaining(density=None, material_code=None):
+    """Total PR16 stash kg remaining.
+
+    PR16 stash is intended to be mixed material and can be consumed regardless
+    of the next batch's density/material. Density/material are kept only for
+    traceability, but are optional filters.
+    """
     q = (db.session.query(func.coalesce(func.sum(PR16Stash.kg_remaining), 0.0))
          .filter(PR16Stash.kg_remaining > 0))
     if density is not None:
@@ -103,7 +109,7 @@ def pr16_total_remaining(density, material_code):
         q = q.filter(PR16Stash.material_code == material_code)
     return float(q.scalar() or 0.0)
 
-def pr16_rows_fifo(density, material_code):
+def pr16_rows_fifo(density=None, material_code=None):
     q = (PR16Stash.query
          .filter(PR16Stash.kg_remaining > 0)
          .order_by(PR16Stash.created_at.asc(), PR16Stash.id.asc()))
@@ -135,7 +141,7 @@ def _stash_leftover_to_pr16(source_pre_exp: PreExpansion, leftover_kg: float):
 # Per-block save & consumption rows
 # ---------------------------------
 
-def _alloc_from_pr16_fifo(required_kg, density, material_code):
+def _alloc_from_pr16_fifo(required_kg, density=None, material_code=None):
     """
     Consume from PR16 stash FIFO. Returns list of (source_pre_exp_id, kg_taken)
     and the remaining kg still required after PR16 pull.
@@ -145,7 +151,7 @@ def _alloc_from_pr16_fifo(required_kg, density, material_code):
     if remaining <= 0:
         return allocations, 0.0
 
-    for row in pr16_rows_fifo(density, material_code):
+    for row in pr16_rows_fifo(density=density, material_code=material_code):
         if remaining <= 0:
             break
         take = min(row.kg_remaining, remaining)
@@ -221,7 +227,8 @@ def add_block_to_session(session, pre_exp, form, operator_id):
     allocations = []
 
     if form.is_profile16.data:
-        pull, remaining = _alloc_from_pr16_fifo(required, pre_exp.density, pre_exp.material_code)
+        # PR16 blocks consume from the PR16 stash first (pooled across densities/material codes).
+        pull, remaining = _alloc_from_pr16_fifo(required)
         allocations.extend(pull)
         if remaining > 0:
             allocations.append((pre_exp.id, remaining))

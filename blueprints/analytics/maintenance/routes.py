@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template
-from flask_login import login_required
+from utils.authz import manager_required
 from datetime import datetime
 from .forms import MaintenanceAnalyticsFilterForm
 from .helpers import get_maintenance_analytics
@@ -11,7 +11,7 @@ maintenance_analytics_bp = Blueprint(
 )
 
 @maintenance_analytics_bp.route('/analytics', methods=['GET','POST'])
-@login_required
+@manager_required
 def dashboard():
     form = MaintenanceAnalyticsFilterForm()
     techs = Operator.query.order_by(Operator.full_name).all()

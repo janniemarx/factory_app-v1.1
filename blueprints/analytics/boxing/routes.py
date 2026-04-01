@@ -1,7 +1,7 @@
 # blueprints/analytics/boxing/routes.py
 
 from flask import Blueprint, render_template, request, flash
-from flask_login import login_required
+from utils.authz import manager_required
 from .helpers import get_boxing_analytics
 from models.operator import Operator
 from .forms import BoxingAnalyticsFilterForm
@@ -13,7 +13,7 @@ boxing_analytics_bp = Blueprint(
 )
 
 @boxing_analytics_bp.route("/", methods=["GET", "POST"])
-@login_required
+@manager_required
 def dashboard():
     form = BoxingAnalyticsFilterForm()
     # Choices as ints, 0 = All

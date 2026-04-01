@@ -75,7 +75,10 @@
     </div>
 
     <div class="mt-4 d-flex gap-2">
-      <a class="btn btn-secondary" href="{{ url_for('attendance.operators') }}">Back</a>
+      <a class="btn btn-secondary" href="{{ url_for('attendance.operators_maintenance') }}">Back</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('attendance.leave_quick_print', operator_id=op.id) }}">
+        <i class="bi bi-printer"></i> Print Leave Form
+      </a>
       <button class="btn btn-primary">Save</button>
     </div>
   </form>

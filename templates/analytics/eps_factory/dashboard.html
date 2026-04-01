@@ -27,10 +27,20 @@
 </style>
 
 <div class="container py-4">
-  <h2 class="mb-4 text-center">EPS Factory Production Analytics</h2>
+  <div class="page-head">
+    <div>
+      <h2>EPS Factory Production Analytics</h2>
+      <div class="page-sub">Batch-level usage, output, waste, and performance.</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}">
+        <i class="bi bi-house"></i> Home
+      </a>
+    </div>
+  </div>
 
   <!-- Filter Form -->
-  <form method="post" class="card shadow p-3 mb-4">
+  <form method="post" class="card filter-card p-3 mb-4">
     {{ form.hidden_tag() }}
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
@@ -56,7 +66,7 @@
   </form>
 
   {% if analytics_data %}
-  <div class="card shadow p-3">
+  <div class="card table-card p-3">
     <div class="table-responsive">
       <table class="table table-bordered table-striped align-middle">
         <thead class="table-light">

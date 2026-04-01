@@ -53,10 +53,10 @@ def start_pre_expansion_session():
                 checks[f'check{i}'] = False
 
             # Save checklist tied to this session + audit "pre"
-            _, evt_err = add_checklist_from_values(checks, current_user, pre_exp, ip_address=request.remote_addr)
-            if evt_err:
-                # not fatal for starting the session, but surface it
-                flash(f"Saved session but failed to log checklist audit: {evt_err}", "warning")
+            _, checklist_err = add_checklist_from_values(checks, current_user, pre_exp, ip_address=request.remote_addr)
+            if checklist_err:
+                # Not fatal for starting the session, but surface it.
+                flash(f"Saved session but failed to save checklist/audit: {checklist_err}", "warning")
 
         # Link an existing checklist if the flow created one before the session existed
         if checklist_id:

@@ -120,12 +120,24 @@ def get_dashboard_counts() -> tuple[DashboardCounts, str | None]:
 
 
 def add_checklist(*, operator, ip_address: str | None, checks: dict[str, bool], pre_expansion_id: int | None = None) -> tuple[PreExpansionChecklist | None, str | None]:
-    checklist = PreExpansionChecklist(
-        completed_by=(operator.full_name or operator.username),
-        pre_expansion_id=pre_expansion_id,
-        **{f"check{i}": bool(checks.get(f"check{i}", False)) for i in range(1, 14)},
-    )
-    db.session.add(checklist)
+    # pre_expansion_id is UNIQUE: update existing checklist if it already exists.
+    checklist = None
+    if pre_expansion_id is not None:
+        checklist = PreExpansionChecklist.query.filter_by(pre_expansion_id=pre_expansion_id).first()
+
+    if checklist is None:
+        checklist = PreExpansionChecklist(
+            completed_by=(operator.full_name or operator.username),
+            pre_expansion_id=pre_expansion_id,
+            **{f"check{i}": bool(checks.get(f"check{i}", False)) for i in range(1, 14)},
+        )
+        db.session.add(checklist)
+    else:
+        checklist.completed_by = (operator.full_name or operator.username)
+        checklist.completed_at = datetime.utcnow()
+        for i in range(1, 14):
+            setattr(checklist, f"check{i}", bool(checks.get(f"check{i}", False)))
+
     ok, err = safe_commit()
     if not ok:
         return None, err

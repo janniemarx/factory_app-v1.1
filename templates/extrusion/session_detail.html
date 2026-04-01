@@ -72,11 +72,6 @@
           <i class="bi bi-sliders"></i> Edit All Settings (separate page)
         </a>
 
-        <!-- Checklist -->
-        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#checklistModal">
-          <i class="bi bi-clipboard-check"></i> Checklist
-        </button>
-
         <!-- Pause/Resume -->
         {% if session.status == 'running' and not session.is_paused %}
           <form method="post" class="d-inline">
@@ -105,77 +100,19 @@
 
     <!-- Metrics row -->
     <div class="row g-3 mb-3">
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-6">
         <div class="card shadow-sm p-3 h-100">
           <div class="text-muted small">Run Hours</div>
           <div class="fs-4">{{ "%.2f"|format(metrics.run_hours or 0) }}</div>
         </div>
       </div>
-      <div class="col-6 col-md-3">
-        <div class="card shadow-sm p-3 h-100">
-          <div class="text-muted small">Pieces Produced</div>
-          <div class="fs-4">{{ metrics.pieces or 0 }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card shadow-sm p-3 h-100">
-          <div class="text-muted small">Theoretical Boxes</div>
-          <div class="fs-4">{{ metrics.theoretical_boxes or 0 }}</div>
-        </div>
-      </div>
-      <div class="col-12 col-md-3">
+      <div class="col-6 col-md-6">
         <div class="card shadow-sm p-3 h-100">
           <div class="text-muted small">Operator</div>
           <div class="fs-6">
             {{ session.operator.full_name or session.operator.username if session.operator else '-' }}
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Expected vs Actual (read-only table) -->
-    <div class="card shadow p-3 mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Material Usage — Expected vs Actual</h5>
-        <small class="text-muted">Expected based on rate plans × active hours</small>
-      </div>
-      <div class="table-responsive mt-2">
-        <table class="table table-sm align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Material</th>
-              <th class="text-end">Expected</th>
-              <th class="text-end">Actual</th>
-              <th class="text-end d-none d-md-table-cell">Diff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% set E = metrics.expected or {} %}
-            {% set A = metrics.actual or {} %}
-            {% set rows = [
-              ('GPPS',        E.get('gpps_kg', 0),           A.get('gpps_kg', 0),           'kg'),
-              ('Talc',        E.get('talc_kg', 0),           A.get('talc_kg', 0),           'kg'),
-              ('Fire Retard.',E.get('fire_retardant_kg', 0), A.get('fire_retardant_kg', 0), 'kg'),
-              ('Recycling',   E.get('recycling_kg', 0),      A.get('recycling_kg', 0),      'kg'),
-              ('CO₂',         E.get('co2_kg', 0),            A.get('co2_kg', 0),            'kg'),
-              ('Alcohol',     E.get('alcohol_l', 0),         A.get('alcohol_l', 0),         'L'),
-              ('Oil',         0,                              A.get('oil_l', 0),            'L'),
-            ] %}
-            {% for name, exp, act, unit in rows %}
-              {% set diff = (act - exp) %}
-              <tr>
-                <td>{{ name }}</td>
-                <td class="text-end">{{ exp }}</td>
-                <td class="text-end">{{ act }}</td>
-                <td class="text-end d-none d-md-table-cell">
-                  <span class="badge {% if diff|float > 0 %}bg-danger{% elif diff|float < 0 %}bg-success{% else %}bg-secondary{% endif %}">
-                    {{ "%.3f"|format(diff) }} {{ unit }}
-                  </span>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
       </div>
     </div>
 
@@ -220,7 +157,7 @@
                 </tr>
               </thead>
               <tbody>
-                {% for u in session.material_usages|sort(attribute='timestamp') %}
+                {% for u in visible_usages|sort(attribute='timestamp') %}
                 <tr>
                   <td>{{ u.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                   <td>{{ u.material.name.replace('_',' ') }}</td>
@@ -295,52 +232,6 @@
           <div class="modal-footer">
             <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CHECKLIST MODAL -->
-    <div class="modal fade" id="checklistModal" tabindex="-1" aria-modal="false" role="dialog">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-          <form method="post">
-            {{ checklist_form.hidden_tag() }}
-            <div class="modal-header">
-              <h5 class="modal-title">Pre-start Checklist</h5>
-            </div>
-            <div class="modal-body">
-              <div class="mb-2">
-                {{ checklist_form.answers_json.label(class="form-label") }}
-                {{ checklist_form.answers_json(class="form-control", rows="6", placeholder='{"guards":"ok","oil_level":"ok","cooling":"ok"}') }}
-                <div class="form-text">Paste/edit JSON answers here.</div>
-              </div>
-              <div class="row g-2">
-                <div class="col-md-4">
-                  <div class="form-check form-switch">
-                    {{ checklist_form.approved(class="form-check-input", id="chkApproved2") }}
-                    <label for="chkApproved2" class="form-check-label">Approved?</label>
-                  </div>
-                </div>
-                <div class="col-md-8">
-                  {{ checklist_form.notes.label(class="form-label") }}
-                  {{ checklist_form.notes(class="form-control") }}
-                </div>
-              </div>
-
-              {% if prestart_checklist %}
-                <hr>
-                <h6 class="mb-2">Last Saved</h6>
-                <div class="small text-muted">
-                  At {{ prestart_checklist.completed_at.strftime('%Y-%m-%d %H:%M') if prestart_checklist.completed_at else '-' }}
-                </div>
-                <pre class="bg-light p-2 mt-2" style="max-height:220px;overflow:auto;">{{ prestart_checklist.answers | tojson(indent=2) }}</pre>
-              {% endif %}
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button name="save_checklist" class="btn btn-primary">Save Checklist</button>
-            </div>
-          </form>
         </div>
       </div>
     </div>

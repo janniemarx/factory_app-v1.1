@@ -10,7 +10,6 @@ from .helpers import parse_date, iso_monday
 from markupsafe import Markup
 
 
-@attendance_bp.route('/attendance/operators', methods=['GET', 'POST'])
 @attendance_bp.route('/attendance/operators', methods=['GET', 'POST'], endpoint='operators_maintenance')
 @login_required
 def operators():
@@ -70,7 +69,7 @@ def operators():
 			flash('Updated ' + ' & '.join(msg) + '.', 'success')
 		else:
 			flash('No changes detected.', 'info')
-		return redirect(url_for('attendance.operators', room_number=room_number, name_like=name_like, active_only=('on' if active_only else ''), week=plan_week.isoformat()))
+		return redirect(url_for('attendance.operators_maintenance', room_number=room_number, name_like=name_like, active_only=('on' if active_only else ''), week=plan_week.isoformat()))
 
 	q = Operator.query
 	if room_number is not None:
@@ -164,7 +163,7 @@ def night_plan():
 		p.notes = request.form.get('notes')
 		db.session.commit()
 		flash('Night plan saved.', 'success')
-		return redirect(url_for('attendance.operators'))
+		return redirect(url_for('attendance.operators_maintenance'))
 
 	# Render form
 	ops = Operator.query.filter_by(active=True).order_by(Operator.full_name.asc().nullslast(), Operator.username.asc()).all()
@@ -237,7 +236,7 @@ def operator_edit(operator_id: int):
 
 		db.session.commit()
 		flash('Operator payroll/leave settings saved.', 'success')
-		return redirect(url_for('attendance.operators'))
+		return redirect(url_for('attendance.operators_maintenance'))
 
 	# Render simple form
 	return render_template('attendance/operator_edit.html', op=op)

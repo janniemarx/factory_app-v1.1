@@ -79,6 +79,9 @@
               </td>
               <td>
                 <a class="btn btn-sm btn-outline-primary" href="{{ url_for('attendance.operator_edit', operator_id=op.id) }}">Edit</a>
+                <a class="btn btn-sm btn-outline-secondary ms-1" href="{{ url_for('attendance.leave_quick_print', operator_id=op.id) }}" title="Print leave form">
+                  <i class="bi bi-printer"></i> Print Leave
+                </a>
               </td>
               {% if use_night_plan %}
                 <td class="small">

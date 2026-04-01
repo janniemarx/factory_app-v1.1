@@ -1,6 +1,7 @@
 from models.pre_expansion import PreExpansion, DensityCheck, PreExpansionChecklistEvent, PreExpansionChecklist
 from models import db
 from datetime import datetime, date, timedelta
+import math
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -226,18 +227,47 @@ def add_finish_session(pre_exp, request_form, operator=None, ip_address=None):
     try:
         # New flow: capture raw weight AFTER pre-expansion, then compute actual used
         raw_after = request_form.get('raw_after_kg', type=float)
+        raw_before_val = pre_exp.planned_kg
+        raw_before = float(raw_before_val) if raw_before_val is not None else None
+
+        if raw_before is not None:
+            if (not math.isfinite(raw_before)) or raw_before < 0:
+                return False, "Raw material before must be a valid non-negative number."
+
         if raw_after is not None:
-            raw_before = float(pre_exp.planned_kg or 0.0)
-            if raw_after < 0:
+            if not math.isfinite(float(raw_after)):
+                return False, "Raw material after must be a valid number."
+            raw_after_f = float(raw_after)
+            if raw_after_f < 0:
                 return False, "Raw material after cannot be negative."
-            used = raw_before - float(raw_after)
-            if used < 0:
-                return False, "Raw material after cannot be greater than raw material before."
-            pre_exp.raw_after_kg = float(raw_after)
+            if raw_before is None:
+                return False, "Raw material before is missing; cannot finish session."
+
+            # AFTER must be strictly less than BEFORE (you must use material).
+            if raw_after_f >= raw_before - 1e-6:
+                return False, "Raw material after must be less than raw material before."
+
+            used = raw_before - raw_after_f
+            if used <= 1e-6:
+                return False, "Raw material used must be greater than 0."
+            pre_exp.raw_after_kg = raw_after_f
             pre_exp.total_kg_used = round(float(used), 2)
         else:
             # Backward compatibility (older UI): allow posting total_kg_used directly
-            pre_exp.total_kg_used = request_form.get('total_kg_used', type=float)
+            used = request_form.get('total_kg_used', type=float)
+            if used is None:
+                return False, "Raw material used is required."
+            if not math.isfinite(float(used)):
+                return False, "Raw material used must be a valid number."
+            used_f = float(used)
+            if used_f <= 0:
+                return False, "Raw material used must be greater than 0."
+            if raw_before is not None and used_f > raw_before + 1e-6:
+                return False, "Raw material used cannot be greater than raw material before."
+            pre_exp.total_kg_used = round(used_f, 2)
+            # If we know raw_before, backfill raw_after for consistency.
+            if raw_before is not None:
+                pre_exp.raw_after_kg = round(max(raw_before - used_f, 0.0), 2)
         pre_exp.end_time = datetime.utcnow()
         pre_exp.status = 'completed'
 
@@ -286,24 +316,26 @@ def add_finish_session(pre_exp, request_form, operator=None, ip_address=None):
 
 
 def add_checklist_from_values(checks: dict, operator, pre_exp: PreExpansion | None, ip_address=None):
-    checklist = PreExpansionChecklist(
-        completed_by=operator.full_name or operator.username,
-        check1=checks.get('check1', False),
-        check2=checks.get('check2', False),
-        check3=checks.get('check3', False),
-        check4=checks.get('check4', False),
-        check5=checks.get('check5', False),
-        check6=checks.get('check6', False),
-        check7=checks.get('check7', False),
-        check8=checks.get('check8', False),
-        check9=checks.get('check9', False),
-        check10=checks.get('check10', False),
-        check11=checks.get('check11', False),
-        check12=checks.get('check12', False),
-        check13=checks.get('check13', False),
-        pre_expansion_id=(pre_exp.id if pre_exp else None)
-    )
-    db.session.add(checklist)
+    # pre_expansion_id is UNIQUE, so we must upsert here (double-submits happen).
+    checklist = None
+    if pre_exp is not None:
+        checklist = getattr(pre_exp, 'checklist', None)
+        if checklist is None:
+            checklist = PreExpansionChecklist.query.filter_by(pre_expansion_id=pre_exp.id).first()
+
+    if checklist is None:
+        checklist = PreExpansionChecklist(
+            completed_by=operator.full_name or operator.username,
+            pre_expansion_id=(pre_exp.id if pre_exp else None),
+            **{f'check{i}': bool(checks.get(f'check{i}', False)) for i in range(1, 14)}
+        )
+        db.session.add(checklist)
+    else:
+        checklist.completed_by = operator.full_name or operator.username
+        checklist.completed_at = datetime.utcnow()
+        for i in range(1, 14):
+            setattr(checklist, f'check{i}', bool(checks.get(f'check{i}', False)))
+
     ok, err = safe_commit()
     if not ok:
         return None, err

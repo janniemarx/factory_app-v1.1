@@ -1,14 +1,27 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container py-3">
-  <h3>Extrusion Analytics</h3>
-  <form method="post" class="row g-2 mb-3">
+  <div class="page-head">
+    <div>
+      <h2>Extrusion Analytics</h2>
+      <div class="page-sub">Filter sessions and review KPIs.</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}">
+        <i class="bi bi-house"></i> Home
+      </a>
+    </div>
+  </div>
+
+  <form method="post" class="card filter-card p-3 mb-3">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-md-2">{{ form.extruder_id.label(class='form-label') }}{{ form.extruder_id(class='form-select form-select-sm') }}</div>
-    <div class="col-md-2">{{ form.profile_id.label(class='form-label') }}{{ form.profile_id(class='form-select form-select-sm') }}</div>
-    <div class="col-md-2">{{ form.date_from.label(class='form-label') }}{{ form.date_from(class='form-control form-control-sm') }}</div>
-    <div class="col-md-2">{{ form.date_to.label(class='form-label') }}{{ form.date_to(class='form-control form-control-sm') }}</div>
-    <div class="col-md-2 d-flex align-items-end">{{ form.submit(class='btn btn-primary btn-sm w-100') }}</div>
+    <div class="row g-2 align-items-end">
+      <div class="col-md-2">{{ form.extruder_id.label(class='form-label') }}{{ form.extruder_id(class='form-select form-select-sm') }}</div>
+      <div class="col-md-2">{{ form.profile_id.label(class='form-label') }}{{ form.profile_id(class='form-select form-select-sm') }}</div>
+      <div class="col-md-2">{{ form.date_from.label(class='form-label') }}{{ form.date_from(class='form-control form-control-sm') }}</div>
+      <div class="col-md-2">{{ form.date_to.label(class='form-label') }}{{ form.date_to(class='form-control form-control-sm') }}</div>
+      <div class="col-md-2">{{ form.submit(class='btn btn-primary btn-sm w-100') }}</div>
+    </div>
   </form>
   <div class="row g-3 mb-3">
     {% for title, val, icon in [
@@ -20,16 +33,20 @@
       ('Damage %', analytics.damage_pct ~ '%', 'bi-activity'),
     ] %}
     <div class="col-md-2 col-6">
-      <div class="p-2 border rounded small bg-white h-100">
-        <div class="text-muted text-uppercase small fw-semibold">{{ title }}</div>
-        <div class="fs-6 fw-bold">{{ val }}</div>
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">{{ title }}</div>
+        <div class="kpi-value">{{ val }}</div>
       </div>
     </div>
     {% endfor %}
   </div>
-  <h6 class="mt-4">Per Profile</h6>
-  <div class="table-responsive small">
-    <table class="table table-sm table-striped align-middle">
+  <div class="card table-card mt-4">
+    <div class="card-header bg-light">
+      <strong>Per Profile</strong>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive small">
+        <table class="table table-sm table-striped align-middle mb-0">
       <thead class="table-light">
         <tr><th>Profile</th><th>Pieces</th><th>Sessions</th><th>Runtime (h)</th><th>Avg Rate</th></tr>
       </thead>
@@ -46,7 +63,9 @@
         <tr><td colspan="5" class="text-center text-muted">No sessions found for filters.</td></tr>
         {% endfor %}
       </tbody>
-    </table>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

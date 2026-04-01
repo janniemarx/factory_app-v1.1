@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 from io import BytesIO
-from flask import request, render_template, redirect, url_for, flash, send_file
+from flask import request, render_template, redirect, url_for, flash, send_file, current_app
 from flask_login import login_required, current_user
 
 from .routes import attendance_bp
@@ -287,3 +287,123 @@ def leave_print(request_id: int):
 	date_str = (lr.created_at or datetime.utcnow()).strftime('%Y-%m-%d')
 	filename = f"{name_clean}_{date_str}_leave.pdf"
 	return send_file(pdf, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
+@attendance_bp.route('/attendance/leave/quick-print', methods=['GET', 'POST'])
+@login_required
+def leave_quick_print():
+	"""Quickly print a leave form PDF without creating a LeaveRequest."""
+	operators = Operator.query.filter_by(active=True).order_by(Operator.full_name.asc()).all()
+
+	# Lightweight shim expected by the template
+	class Field:
+		def __init__(self, name, data=None, choices=None):
+			self.name = name
+			self.data = data
+			self.choices = choices or []
+
+	class QuickPrintForm:
+		def __init__(self, ops):
+			pre_id = request.args.get('operator_id') or ''
+			choices = [(str(o.id), f"{(o.full_name or o.username)}{f' ({o.emp_no})' if o.emp_no else ''}") for o in ops]
+			self.operator_id = Field('operator_id', data=str(pre_id) if pre_id else '', choices=choices)
+
+		def hidden_tag(self):
+			return Markup(f"<input type='hidden' name='csrf_token' value='{generate_csrf()}'>")
+
+		def leave_type(self, **k):
+			cls = k.get('class', 'form-select')
+			id_ = k.get('id', 'leaveType')
+			selected = (request.args.get('leave_type') or '').strip().lower()
+			options = [
+				('annual', 'Annual leave'),
+				('sick', 'Sick leave'),
+				('family', 'Family responsibility'),
+				('special', 'Special leave'),
+				('unpaid', 'Unpaid leave'),
+				('study', 'Study leave'),
+			]
+			opts_html = ''.join(
+				f"<option value='{val}'{' selected' if val == selected else ''}>{label}</option>"
+				for val, label in options
+			)
+			return Markup(f"<select name='leave_type' id='{id_}' class='{cls}'>{opts_html}</select>")
+
+		def start_date(self, **k):
+			cls = k.get('class', 'form-control')
+			id_ = k.get('id', 'startDate')
+			typ = k.get('type', 'date')
+			required = ' required' if k.get('required') else ''
+			val = request.args.get('start_date') or date.today().isoformat()
+			return Markup(f"<input name='start_date' id='{id_}' class='{cls}' type='{typ}' value='{val}'{required}>")
+
+		def end_date(self, **k):
+			cls = k.get('class', 'form-control')
+			id_ = k.get('id', 'endDate')
+			typ = k.get('type', 'date')
+			required = ' required' if k.get('required') else ''
+			start_q = request.args.get('start_date')
+			val = request.args.get('end_date') or (start_q or date.today().isoformat())
+			return Markup(f"<input name='end_date' id='{id_}' class='{cls}' type='{typ}' value='{val}'{required}>")
+
+		def hours_per_day(self, **k):
+			cls = k.get('class', 'form-control')
+			id_ = k.get('id', 'hoursPerDay')
+			val = request.args.get('hours_per_day') or ''
+			step = k.get('step', '0.25')
+			placeholder = k.get('placeholder', '8')
+			return Markup(
+				f"<input name='hours_per_day' id='{id_}' class='{cls}' type='number' step='{step}' min='0' placeholder='{placeholder}' value='{val}'>"
+			)
+
+		def notes(self, **k):
+			cls = k.get('class', 'form-control')
+			rows = k.get('rows', '3')
+			val = request.args.get('notes') or ''
+			return Markup(f"<textarea name='notes' class='{cls}' rows='{rows}'>{val}</textarea>")
+
+		def submit(self, **k):
+			cls = k.get('class', 'btn btn-primary')
+			return Markup(f"<button class='{cls}'><i class='bi bi-printer'></i> Print Form</button>")
+
+	form = QuickPrintForm(operators)
+
+	if request.method == 'POST':
+		operator_id = request.form.get('operator_id', type=int)
+		leave_type = (request.form.get('leave_type') or '').strip().lower()
+		start_date = parse_date(request.form.get('start_date'))
+		end_date = parse_date(request.form.get('end_date'))
+		hours_per_day = request.form.get('hours_per_day', type=float)
+		notes = request.form.get('notes')
+
+		if not operator_id or not start_date or not end_date or not leave_type:
+			flash('Missing required fields.', 'warning')
+			return redirect(request.url)
+
+		operator = Operator.query.get_or_404(operator_id)
+
+		template = current_app.config.get('LEAVE_FORM_TEMPLATE')
+		if not template:
+			flash('Leave form template not configured (LEAVE_FORM_TEMPLATE).', 'danger')
+			return redirect(request.url)
+		template = os.path.abspath(str(template))
+
+		pdf = render_leave_pdf(
+			template_path=template,
+			employee_name=(operator.full_name or operator.username) if operator else '—',
+			application_date=date.today(),
+			leave_type=leave_type,
+			start_date=start_date,
+			end_date=end_date,
+			hours_per_day=hours_per_day,
+			comments=notes or None,
+		)
+
+		name_raw = (operator.full_name or operator.username or operator.emp_no or 'employee') if operator else 'employee'
+		name_clean = re.sub(r'[^A-Za-z0-9._-]+', '_', name_raw).strip('_')
+		name_clean = re.sub(r'_+', '_', name_clean)
+		date_str = datetime.utcnow().strftime('%Y-%m-%d')
+		filename = f"{name_clean}_{date_str}_leave_form.pdf"
+		return send_file(pdf, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+	return render_template('attendance/leave_quick_print.html', form=form)

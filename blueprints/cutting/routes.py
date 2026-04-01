@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
+import logging
 import os
 import tempfile
 from datetime import datetime
@@ -223,28 +224,28 @@ def auto_assign():
     Step 2: Auto-assign based on parsed requirements and save assignments.
     """
     data = request.json
-    print("DEBUG: /auto_assign received data:", data)
+    logging.debug("/auto_assign received data: %s", data)
     requirements = data.get('requirements')
     allow_overtime = data.get('allow_overtime', False)
 
     # Defensive filter for valid requirements
     if not isinstance(requirements, list):
-        print("DEBUG: requirements is not a list!", requirements)
+        logging.debug("requirements is not a list: %s", requirements)
         return jsonify({"error": "Invalid requirements."}), 400
 
     requirements = [r for r in requirements if isinstance(r.get('blocks_needed'), int) and r['blocks_needed'] > 0]
 
     if not requirements:
-        print("DEBUG: No valid requirements after filter.", requirements)
+        logging.debug("No valid requirements after filter: %s", requirements)
         return jsonify({"error": "No profiles to assign."}), 400
 
     assignment, err = auto_assign_profiles_to_machines(requirements, allow_overtime=allow_overtime)
     if err:
-        print("DEBUG: Assignment error:", err)
+        logging.debug("Assignment error: %s", err)
         return jsonify({"error": err}), 400
     success, err = save_machine_profile_assignments(assignment)
     if not success:
-        print("DEBUG: Save error:", err)
+        logging.debug("Save error: %s", err)
         return jsonify({"error": err}), 400
     return jsonify({"success": True})
 

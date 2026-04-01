@@ -47,14 +47,14 @@ def start_block_session():
             for pe in available_pre_expansions
         ]
 
-    # Warn if PR16 stash exists for the selected density/material
+    # Warn if ANY PR16 stash exists (pooled across densities/material codes)
     if form.validate_on_submit():
         selected_pre_exp = PreExpansion.query.get(form.pre_expansion_id.data)
         if not selected_pre_exp or selected_pre_exp.is_used or selected_pre_exp.status != 'completed':
             flash("Invalid or already used pre-expansion batch.", "danger")
             return redirect(url_for('blocks.start_block_session'))
 
-        stash_kg = pr16_total_remaining(selected_pre_exp.density, selected_pre_exp.material_code)
+        stash_kg = pr16_total_remaining()
         if stash_kg > 0:
             flash(
                 f"Note: There is {stash_kg:.2f} kg PR16 material available in the silo. "
@@ -87,8 +87,8 @@ def session_detail(session_id):
         flash(f"Could not load blocks: {error}", "danger")
         blocks = []
 
-    # PR16 stash for this density/material
-    pr16_stash_kg = pr16_total_remaining(pre_exp.density, pre_exp.material_code)
+    # PR16 stash is pooled (can be consumed regardless of density/material)
+    pr16_stash_kg = pr16_total_remaining()
 
     # Has this session already produced at least one PR16 block?
     has_pr16_block = (
@@ -97,9 +97,8 @@ def session_detail(session_id):
         .scalar() or 0
     ) > 0
 
-    # If there is stash available and we haven't made a PR16 block yet,
-    # force the next block to be PR16.
-    force_pr16_first = (pr16_stash_kg > 0) and (not has_pr16_block)
+    # If there is stash available, force blocks to PR16 until stash is consumed.
+    force_pr16_first = (pr16_stash_kg > 0)
 
     # ---- compute leftover estimate (kg drawn FROM THIS BATCH only) ----
     # Prefer the greater of operator-entered actual output (total_kg_used) and planned_kg
@@ -116,10 +115,10 @@ def session_detail(session_id):
 
     # ------- Add a new block -------
     if form.validate_on_submit() and 'add_block' in request.form and session.status == 'active':
-        # Server-side enforcement: first block must be PR16 when stash exists
+        # Server-side enforcement: blocks must be PR16 while stash exists
         if force_pr16_first:
             form.is_profile16.data = True  # cannot be unchecked until first PR16 is made
-            flash("First block auto-set to PR16 to use leftover stash.", "info")
+            flash("Block auto-set to PR16 to use leftover stash.", "info")
 
         block, error, block_number = add_block_to_session(session, pre_exp, form, current_user.id)
         if error or not block:

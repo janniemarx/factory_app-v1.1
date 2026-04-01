@@ -1,14 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container-fluid py-3">
-  <h1 class="mb-3">EPS Factory Analytics Dashboard</h1>
+  <div class="page-head">
+    <div>
+      <h1>EPS Factory Analytics Dashboard</h1>
+      <div class="page-sub">Live overview of pre-expansion and block production.</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}">
+        <i class="bi bi-house"></i> Home
+      </a>
+    </div>
+  </div>
   <div class="row mb-4">
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Pre-Expansions Today</b><br>{{ quick_stats.pre_exp_today }}</div></div>
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Block Sessions Today</b><br>{{ quick_stats.block_sessions_today }}</div></div>
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Unused Pre-Exp Batches</b><br>{{ quick_stats.unused_pre_exp }}</div></div>
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Total Blocks</b><br>{{ quick_stats.total_blocks }}</div></div>
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Blocks Waiting to Cut</b><br>{{ quick_stats.blocks_waiting_to_cut }}</div></div>
-    <div class="col-md-2"><div class="card shadow-sm p-3"><b>Avg Curing Time (hr)</b><br>{{ quick_stats.avg_curing_time if quick_stats.avg_curing_time else '-' }}</div></div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Pre-Expansions Today</div>
+        <div class="kpi-value">{{ quick_stats.pre_exp_today }}</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Block Sessions Today</div>
+        <div class="kpi-value">{{ quick_stats.block_sessions_today }}</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Unused Pre-Exp Batches</div>
+        <div class="kpi-value">{{ quick_stats.unused_pre_exp }}</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Total Blocks</div>
+        <div class="kpi-value">{{ quick_stats.total_blocks }}</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Blocks Waiting to Cut</div>
+        <div class="kpi-value">{{ quick_stats.blocks_waiting_to_cut }}</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="card kpi-card p-3 h-100">
+        <div class="kpi-label">Avg Curing Time (hr)</div>
+        <div class="kpi-value">{{ quick_stats.avg_curing_time if quick_stats.avg_curing_time else '-' }}</div>
+      </div>
+    </div>
   </div>
 
   <div class="row">

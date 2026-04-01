@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import logging
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import and_, not_, exists
@@ -147,7 +148,7 @@ def exceptions_list():
 @attendance_bp.route('/attendance/exception/fix', methods=['GET', 'POST'])
 @login_required
 def exception_fix():
-	print("=== EXCEPTION_FIX ROUTE HIT ===")
+	logging.debug("EXCEPTION_FIX ROUTE HIT")
 	operator_id = request.args.get('operator_id', type=int) or request.form.get('operator_id', type=int)
 	day_iso = request.args.get('day_iso') or request.form.get('day')
 	day = parse_date(day_iso) or date.today()
@@ -159,7 +160,7 @@ def exception_fix():
 	room_number = request.args.get('room_number') or request.form.get('room_number')
 	exceptions_only = request.args.get('exceptions_only') or request.form.get('exceptions_only')
 	
-	print(f"DEBUG: Context - return_to='{return_to}', start_date='{start_date}', end_date='{end_date}', room_number='{room_number}'")
+	logging.debug("Context - return_to='%s', start_date='%s', end_date='%s', room_number='%s'", return_to, start_date, end_date, room_number)
 	
 	op = Operator.query.get_or_404(operator_id)
 	daily = AttendanceDaily.query.filter_by(operator_id=op.id, day=day).one_or_none()
@@ -203,7 +204,7 @@ def exception_fix():
 			return Markup(f"<button class='{k.get('class','btn btn-primary')}' id='btnApply'>Apply</button>")
 
 	if request.method == 'POST':
-		print(f"DEBUG: POST received - return_to='{return_to}', mode='{request.form.get('mode')}'")
+		logging.debug("POST received - return_to='%s', mode='%s'", return_to, request.form.get('mode'))
 		mode = request.form.get('mode')  # 'leave' or 'adjust'
 		reason = (request.form.get('reason') or '').strip()
 		if not reason:
@@ -283,11 +284,11 @@ def exception_fix():
 			# Determine redirect destination based on context
 			if return_to == 'overtime_queue':
 				redirect_url = url_for('attendance.overtime_queue', start_date=start_date, end_date=end_date, room_number=room_number, exceptions_only=exceptions_only)
-				print(f"DEBUG: Redirecting to overtime_queue: {redirect_url}")
+				logging.debug("Redirecting to overtime_queue: %s", redirect_url)
 				return redirect(redirect_url)
 			else:
 				redirect_url = url_for('attendance.exceptions_list', start_date=start_date, end_date=end_date, room_number=room_number, download=lr.id)
-				print(f"DEBUG: Redirecting to exceptions_list: {redirect_url}")
+				logging.debug("Redirecting to exceptions_list: %s", redirect_url)
 				return redirect(redirect_url)
 		else:
 			# Adjust: add missing in/out then recompute
@@ -318,11 +319,11 @@ def exception_fix():
 			# Determine redirect destination based on context
 			if return_to == 'overtime_queue':
 				redirect_url = url_for('attendance.overtime_queue', start_date=start_date, end_date=end_date, room_number=room_number, exceptions_only=exceptions_only)
-				print(f"DEBUG: Redirecting to overtime_queue: {redirect_url}")
+				logging.debug("Redirecting to overtime_queue: %s", redirect_url)
 				return redirect(redirect_url)
 			else:
 				redirect_url = url_for('attendance.exceptions_list', start_date=start_date, end_date=end_date, room_number=room_number)
-				print(f"DEBUG: Redirecting to exceptions_list: {redirect_url}")
+				logging.debug("Redirecting to exceptions_list: %s", redirect_url)
 				return redirect(redirect_url)
 
 	return render_template('attendance/exception_fix.html', daily=daily, op=op, day=day, form=Form(), balances=balances)

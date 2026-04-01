@@ -15,9 +15,11 @@
     <div class="col-6 col-md-3"><div class="small text-muted">GPPS kg/h</div><div class="fw-semibold">{{ latest_settings.gpps_kg_h or '-' }}</div></div>
     <div class="col-6 col-md-3"><div class="small text-muted">Talc kg/h</div><div class="fw-semibold">{{ latest_settings.talc_kg_h or '-' }}</div></div>
     <div class="col-6 col-md-3"><div class="small text-muted">FR kg/h</div><div class="fw-semibold">{{ latest_settings.fire_retardant_kg_h or '-' }}</div></div>
-    <div class="col-6 col-md-3"><div class="small text-muted">Recycling kg/h</div><div class="fw-semibold">{{ latest_settings.recycling_kg_h or '-' }}</div></div>
-    <div class="col-6 col-md-3"><div class="small text-muted">CO₂ kg/h</div><div class="fw-semibold">{{ latest_settings.co2_kg_h or '-' }}</div></div>
-    <div class="col-6 col-md-3"><div class="small text-muted">Alcohol L/h</div><div class="fw-semibold">{{ latest_settings.alcohol_l_h or '-' }}</div></div>
+    {% if current_user.is_manager %}
+      <div class="col-6 col-md-3"><div class="small text-muted">Recycling kg/h</div><div class="fw-semibold">{{ latest_settings.recycling_kg_h or '-' }}</div></div>
+      <div class="col-6 col-md-3"><div class="small text-muted">CO₂ kg/h</div><div class="fw-semibold">{{ latest_settings.co2_kg_h or '-' }}</div></div>
+      <div class="col-6 col-md-3"><div class="small text-muted">Alcohol L/h</div><div class="fw-semibold">{{ latest_settings.alcohol_l_h or '-' }}</div></div>
+    {% endif %}
   </div>
 
   {% if latest_settings.heat_table %}

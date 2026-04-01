@@ -134,7 +134,7 @@
               <label class="form-check-label">{{ form.is_profile16.label.text }}</label>
               <input type="hidden" name="{{ form.is_profile16.name }}" value="y">
               <div class="form-text text-warning">
-                First block must be PR16 to consume leftover stash (auto-set). You can uncheck for later blocks.
+                PR16 is auto-set while leftover stash exists (consumed first).
               </div>
             {% else %}
               {{ form.is_profile16(class="form-check-input") }}

@@ -7,7 +7,13 @@ BASE_DIR = Path(__file__).resolve().parent
 class Config:
     # Flask / DB
     # IMPORTANT: set SECRET_KEY in environment for production.
-    SECRET_KEY = os.environ.get("SECRET_KEY", "CHANGE_ME")
+    SECRET_KEY = os.environ.get("SECRET_KEY") or "CHANGE_ME"
+    if SECRET_KEY == "CHANGE_ME" and os.environ.get("FLASK_ENV") != "development":
+        import warnings
+        warnings.warn(
+            "SECRET_KEY is not set! Set the SECRET_KEY environment variable for production.",
+            stacklevel=1,
+        )
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + str(BASE_DIR / "factory.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -17,7 +23,7 @@ class Config:
     PASSWORD = os.environ.get("DEVICE_PASSWORD", "")
     DEVICE_TZ_OFFSET = os.environ.get("DEVICE_TZ_OFFSET", "+02:00")
     DEVICE_SCHEME = os.environ.get("DEVICE_SCHEME", "http")  # or "https"
-    DEVICE_PORT = int(os.environ["DEVICE_PORT"]) if os.environ.get("DEVICE_PORT") else None
+    DEVICE_PORT = int(os.environ.get("DEVICE_PORT", "0")) or None
     DEVICE_CONNECT_TIMEOUT = float(os.environ.get("DEVICE_CONNECT_TIMEOUT", "5"))
     DEVICE_READ_TIMEOUT = float(os.environ.get("DEVICE_READ_TIMEOUT", "30"))
     SYNC_LOOKBACK_DAYS = int(os.environ.get("SYNC_LOOKBACK_DAYS", "30"))
@@ -39,5 +45,6 @@ class Config:
     USE_NIGHT_PLAN = (os.environ.get("USE_NIGHT_PLAN", "0").strip().lower() in ("1","true","yes"))
 
     # Feature flags to control module visibility/registration for staged rollout/testing
-    FEATURE_ATTENDANCE = (os.environ.get("FEATURE_ATTENDANCE", "0").strip().lower() in ("1","true","yes"))
-    FEATURE_ANALYTICS  = (os.environ.get("FEATURE_ANALYTICS", "0").strip().lower() in ("1","true","yes"))
+    # Default ON for day-to-day use; disable explicitly in production-only deployments.
+    FEATURE_ATTENDANCE = (os.environ.get("FEATURE_ATTENDANCE", "1").strip().lower() in ("1","true","yes"))
+    FEATURE_ANALYTICS  = (os.environ.get("FEATURE_ANALYTICS", "1").strip().lower() in ("1","true","yes"))

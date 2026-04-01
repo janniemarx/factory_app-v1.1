@@ -1,3 +1,58 @@
+/* ---------- Shared Analytics UI ---------- */
+.page-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.page-head h2,
+.page-head h1 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.page-sub {
+  color: #6c757d;
+  margin-top: 0.15rem;
+}
+
+.filter-card {
+  border-radius: 14px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.06);
+}
+
+.kpi-card {
+  border-radius: 14px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.06);
+  background: #fff;
+}
+
+.kpi-label {
+  color: #6c757d;
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 700;
+}
+
+.kpi-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.kpi-note {
+  color: #6c757d;
+  font-size: .9rem;
+}
+
+.table-card {
+  border-radius: 14px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.06);
+}
 <style>
   /* Responsive aspect-ratio chart container */
   .chart-responsive {

@@ -7,7 +7,6 @@ from models import db
 from models.attendance import WorkSchedule
 
 
-@attendance_bp.route('/attendance/schedules')
 @attendance_bp.route('/attendance/schedules', endpoint='schedules')
 @login_required
 def schedules_list():

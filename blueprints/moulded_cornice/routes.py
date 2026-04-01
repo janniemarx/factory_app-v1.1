@@ -105,7 +105,7 @@ def start_session():
             db.session.add(config)
 
         db.session.commit()
-        flash('Moulded Cornice Session created! Confirm setup to begin production.', 'success')
+        flash('Moulded Cornice Session Started.', 'success')
         return redirect(url_for('moulded_cornice.session_detail', session_id=session.id))
 
     return render_template('moulded_cornice/add_session.html',

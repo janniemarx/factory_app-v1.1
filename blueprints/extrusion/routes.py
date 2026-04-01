@@ -17,7 +17,7 @@ from models.operator import Operator
 # -------- Forms (with safe fallbacks for any you might not have) --------
 from .forms import (
     StartExtrusionSessionForm, AddRatePlanForm, MaterialUsageForm,
-    CycleLogForm, PrestartChecklistForm, ProfileSettingsForm,
+    CycleLogForm, ProfileSettingsForm,
 )
 try:
     from .forms import ProfileForm  # expects: code, length_m, pieces_per_box
@@ -40,7 +40,7 @@ except Exception:
 from .db_helpers import (
     get_extruders, get_profiles, list_sessions,
     start_extrusion_session, pause_session, resume_session, complete_session,
-    add_rate_plan, log_material_usage, log_cycle, save_prestart_checklist,
+    add_rate_plan, log_material_usage, log_cycle,
     recompute_session_metrics,
 )
 try:
@@ -209,7 +209,17 @@ def session_detail(session_id: int):
     # Forms (no rate plan editing on this page)
     usage_form = MaterialUsageForm()
     cycle_form = CycleLogForm()          # used only for CSRF/hidden_tag in the modal
-    checklist_form = PrestartChecklistForm()
+
+    # Only track core material usage in-session.
+    # Keep extra columns/settings stored in DB for later analytics, but don't show/log them here.
+    allowed_materials = [MaterialType.GPPS, MaterialType.TALC, MaterialType.FIRE_RETARDANT]
+    usage_form.material.choices = [(m.value, m.name.replace("_", " ").title()) for m in allowed_materials]
+    allowed_units = [UsageUnit.KG, UsageUnit.BAGS_25KG]
+    usage_form.unit.choices = [(u.value, u.name.replace("_", " ").title()) for u in allowed_units]
+
+    # Filter visible usage log in the UI (do not mutate DB data)
+    visible_names = {"GPPS", "TALC", "FIRE_RETARDANT"}
+    visible_usages = [u for u in (session.material_usages or []) if getattr(u.material, "name", None) in visible_names]
 
     if request.method == "POST":
         # Pause
@@ -257,29 +267,9 @@ def session_detail(session_id: int):
             flash("Usage logged." if ok else f"Usage error: {err}", "info" if ok else "danger")
             return redirect(url_for("extrusion.session_detail", session_id=session.id))
 
-        # Save checklist (update)
-        if "save_checklist" in request.form and checklist_form.validate_on_submit():
-            try:
-                answers = json.loads(checklist_form.answers_json.data or "{}")
-            except json.JSONDecodeError as je:
-                flash(f"Checklist JSON error: {je}", "danger")
-                return redirect(url_for("extrusion.session_detail", session_id=session.id))
-
-            ok, err = save_prestart_checklist(
-                session_id=session.id,
-                completed_by_id=getattr(current_user, "id", None),
-                answers=answers,
-                approved=checklist_form.approved.data,
-                notes=checklist_form.notes.data,
-            )
-            flash("Checklist saved." if ok else f"Checklist error: {err}", "success" if ok else "danger")
-            return redirect(url_for("extrusion.session_detail", session_id=session.id))
-
         # Validation fallthrough
         if "log_usage" in request.form and not usage_form.validate():
             flash("Please correct the material usage fields.", "danger")
-        elif "save_checklist" in request.form and not checklist_form.validate():
-            flash("Please correct the checklist fields.", "danger")
         return redirect(url_for("extrusion.session_detail", session_id=session.id))
 
     # Recompute metrics for display (hours, expected vs actual, pieces, boxes)
@@ -306,21 +296,19 @@ def session_detail(session_id: int):
         next=url_for("extrusion.session_detail", session_id=session.id)  # return here after save
     )
 
-    prestart_checklist = session.checklist
-
     return render_template(
         "extrusion/session_detail.html",
         session=session,
         extruder_label=extruder_label,
         profile_label=profile_label,
         metrics=metrics,
+        show_advanced=False,
+        visible_usages=visible_usages,
         usage_form=usage_form,
         cycle_form=cycle_form,
-        checklist_form=checklist_form,
         MaterialType=MaterialType, UsageUnit=UsageUnit, ReadingType=ReadingType,
         latest_settings=latest_settings,
         settings_manage_url=settings_manage_url,
-        prestart_checklist=prestart_checklist,
     )
 
 

@@ -191,6 +191,7 @@ ROW_FOR_TYPE = {
     "sick": 2,   "sick leave": 2,
     "special": 3, "special leave": 3,
     "other": 3,  # <- backward-compat: old data labeled 'other' lands on Special row
+    "study": 3, "study leave": 3,
     "unpaid": 4, "unpaid leave": 4,
     "family": 5, "family responsibility": 5, "family_responsibility": 5,
 }

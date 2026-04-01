@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="page-head">
+    <div>
+      <h2>Profile Performance</h2>
+      <div class="page-sub">Management report (in progress).</div>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('index') }}">
+        <i class="bi bi-house"></i> Home
+      </a>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="card-body">
+      <div class="alert alert-info mb-0">
+        This report page is enabled and restricted to managers, but the report content hasn’t been built yet.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

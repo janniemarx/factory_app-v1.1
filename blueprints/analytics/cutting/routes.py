@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, abort
-from flask_login import login_required
+from utils.authz import manager_required
 from datetime import datetime, timedelta
 
 from .forms import WireCuttingSessionFilterForm
@@ -97,7 +97,7 @@ def _period_range(period: str):
 
 
 @cutting_analytics_bp.route("/analytics", methods=["GET", "POST"])
-@login_required
+@manager_required
 def dashboard():
     machines = get_machines()
     operators = get_operators()
@@ -200,7 +200,7 @@ def _find_cutting_record_for_session(session: WireCuttingSession):
     return cpr
 
 @cutting_analytics_bp.route("/analytics/session/<int:session_id>", methods=["GET"])
-@login_required
+@manager_required
 def session_detail(session_id: int):
     s = WireCuttingSession.query.get_or_404(session_id)
 

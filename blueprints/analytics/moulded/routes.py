@@ -1,7 +1,7 @@
 # routes.py
 from datetime import datetime
 from flask import Blueprint, render_template, request
-from flask_login import login_required
+from utils.authz import manager_required
 
 from .forms import MouldedAnalyticsFilterForm
 from .helpers import get_moulded_analytics, get_operators_list
@@ -25,7 +25,7 @@ def _coerce_nonzero(value):
 
 
 @moulded_analytics_bp.route("/analytics", methods=["GET", "POST"])
-@login_required
+@manager_required
 def dashboard():
     # Instantiate empty form first; we’ll populate choices before validation
     form = MouldedAnalyticsFilterForm()

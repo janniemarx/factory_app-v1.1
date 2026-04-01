@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, flash, request, jsonify
-from flask_login import login_required
+
+from utils.authz import manager_required
 from .forms import EPSAnalyticsFilterForm
 from .helpers import (
     get_batch_numbers,
@@ -13,7 +14,7 @@ eps_factory_analytics_bp = Blueprint(
 )
 
 @eps_factory_analytics_bp.route('/', methods=['GET', 'POST'])
-@login_required
+@manager_required
 def analytics_dashboard():
     form = EPSAnalyticsFilterForm()
     form.batch_no.choices = [('', 'All')] + get_batch_numbers()
@@ -39,7 +40,7 @@ def analytics_dashboard():
 
 # --- "View More" modal AJAX endpoint (returns HTML fragment or JSON) ---
 @eps_factory_analytics_bp.route('/details/<string:kind>/<int:item_id>')
-@login_required
+@manager_required
 def analytics_details(kind, item_id):
     """
     View more details for a batch/session (for modal or dedicated page).

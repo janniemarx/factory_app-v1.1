@@ -1,4 +1,5 @@
 from flask import Flask, render_template
+import logging
 from config import Config
 from models import db
 from flask_login import LoginManager
@@ -13,6 +14,15 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     db.init_app(app)
+
+    # Logging setup
+    log_level = logging.DEBUG if app.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
     # CSRF setup
     csrf = CSRFProtect()

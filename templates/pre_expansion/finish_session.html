@@ -36,12 +36,13 @@
             type="number"
             step="0.01"
             min="0"
-            max="{{ pre_exp.planned_kg }}"
+            max="{{ (pre_exp.planned_kg - 0.01) if pre_exp.planned_kg is not none and pre_exp.planned_kg >= 0.01 else 0 }}"
             name="raw_after_kg"
             id="raw_after_kg"
             class="form-control form-control-lg"
             required
             autocomplete="off">
+          <div id="raw_after_error" class="alert alert-danger py-2 px-3 mt-2 d-none" role="alert"></div>
           <div class="form-text">
             Enter the weight of the raw material remaining after pre-expansion.
           </div>
@@ -123,18 +124,66 @@ document.addEventListener('DOMContentLoaded', function() {
   const kgInput = document.getElementById('raw_after_kg');
   const btn = document.getElementById('finishSessionBtn');
   const preview = document.getElementById('raw_used_preview');
-  kgInput.addEventListener('input', function() {
-    const val = parseFloat(kgInput.value);
-    const ok = (kgInput.value && !isNaN(val) && val >= 0 && !isNaN(before) && val <= before);
-    btn.disabled = !ok;
+  const errBox = document.getElementById('raw_after_error');
 
-    if (ok) {
-      const used = Math.max(before - val, 0);
-      preview.value = used.toFixed(2);
-    } else {
-      preview.value = '-';
+  function showError(msg) {
+    errBox.textContent = msg;
+    errBox.classList.remove('d-none');
+  }
+
+  function clearError() {
+    errBox.textContent = '';
+    errBox.classList.add('d-none');
+  }
+
+  function validate() {
+    const raw = kgInput.value;
+    const val = parseFloat(raw);
+
+    // Reset UI
+    kgInput.setCustomValidity('');
+    clearError();
+    preview.value = '-';
+    btn.disabled = true;
+
+    if (!raw) return;
+    if (isNaN(val)) {
+      const msg = 'Please enter a valid number.';
+      kgInput.setCustomValidity(msg);
+      showError(msg);
+      return;
     }
+    if (val < 0) {
+      const msg = 'Raw material after cannot be negative.';
+      kgInput.setCustomValidity(msg);
+      showError(msg);
+      return;
+    }
+    if (isNaN(before)) {
+      const msg = 'Raw material before is missing; cannot validate.';
+      kgInput.setCustomValidity(msg);
+      showError(msg);
+      return;
+    }
+    if (val >= before) {
+      const msg = `Raw material after must be less than ${before.toFixed(2)} Kg.`;
+      kgInput.setCustomValidity(msg);
+      showError(msg);
+      return;
+    }
+
+    // Valid
+    const used = Math.max(before - val, 0);
+    preview.value = used.toFixed(2);
+    btn.disabled = false;
+  }
+
+  kgInput.addEventListener('input', function() {
+    validate();
   });
+
+  // Validate on load (e.g. browser autofill)
+  validate();
 });
 
 // Copy modal checks into hidden fields, then submit the main form

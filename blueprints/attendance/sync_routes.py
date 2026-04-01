@@ -9,7 +9,6 @@ from .db_helpers import recompute_range, propose_overtime_for_range, recompute_f
 from services.sync_service import fetch_employees_from_device, fetch_events
 
 
-@attendance_bp.route('/attendance/sync', methods=['GET', 'POST'])
 @attendance_bp.route('/attendance/sync', methods=['GET', 'POST'], endpoint='sync')
 @login_required
 def sync_home():

@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template
-from flask_login import login_required
+
+from utils.authz import manager_required
 from blueprints.analytics.eps_factory_analytics_helpers import (
     get_unutilized_pre_expansions,
     get_block_stats,
@@ -13,7 +14,7 @@ from blueprints.analytics.eps_factory_analytics_helpers import (
 analytics_bp = Blueprint('analytics', __name__, template_folder='../../templates/analytics')
 
 @analytics_bp.route('/dashboard')
-@login_required
+@manager_required
 def analytics_dashboard():
     unused_batches = get_unutilized_pre_expansions()
     stats_today = get_block_stats('today')
